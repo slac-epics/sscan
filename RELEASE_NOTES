@@ -1,0 +1,24 @@
+#==============================================================
+#
+#  Name: RELEASE_NOTES
+#
+#  Rem:  This file contains the release notes for sscan as
+#        pertains to the LCLS release format and procedures.
+#
+#        The initial version of this software written 
+#        by Tim Mooney at APS.
+#
+#  Auth: 17-Jul-2007, S. Schuh           (SCHUHS)
+#  Rev:  dd-mmm-yyyy, Reviewer's Name    (USERNAME)
+#--------------------------------------------------------------
+#  Mod:
+#        dd-mmm-yyyy, First Lastname      (USERNAME)
+#          comment
+#
+#==============================================================
+#
+sscan-R2-5-2-LCLS-1: Initial release used in LCLS Injector and BC1.  No 
+	code changes from modules/sscan/Devl version or former epics/site 
+	version.  Source is sscan APS tagged release R2-5-2.
+
+
