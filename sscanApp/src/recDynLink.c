@@ -22,10 +22,6 @@ of this distribution.
  *               to clear had a queued action, it would loop forever waiting for
  *               the action to be dispatched, because it would not give recDynOut
  *               any processing time to dispatch the action.
- * 08/21/06  tmm CA callback functions were not checking the status field of
- *               the event_handler_args argument they were being passed, and
- *               this resulted in a crash if they tried to use other elements
- *               of the structure when eha.status != ECA_NORMAL.
  *
  */
 
@@ -48,7 +44,6 @@ of this distribution.
 #include <caeventmask.h>
 #include <tsDefs.h>
 #include <epicsExport.h>
-#include <epicsExit.h>
 #include "recDynLink.h"
 
 volatile int recDynINPCallPendEvent = 1;
@@ -93,8 +88,7 @@ static short mapNewToOld[newDBR_ENUM+1] = {
 	DBF_LONG,DBF_LONG,DBF_FLOAT,DBF_DOUBLE,DBF_ENUM};
 
 int   recDynLinkQsize = 256;
-epicsExportAddress(int, recDynLinkQsize);
-LOCAL int shutting_down = 0;
+   
 LOCAL epicsThreadId inpTaskId=NULL;
 LOCAL epicsThreadId	outTaskId=NULL;
 LOCAL epicsEventId	wakeUpEvt;
@@ -148,11 +142,6 @@ LOCAL void notifyCallback(struct event_handler_args eha);
 LOCAL void recDynLinkInp(void);
 LOCAL void recDynLinkOut(void);
 
-
-void exit_handler(void *arg) {
-	shutting_down = 1;
-}
-
 long epicsShareAPI recDynLinkAddInput(recDynLink *precDynLink,char *pvname,
 	short dbrType,int options,
 	recDynCallback searchCallback,recDynCallback monitorCallback)
@@ -160,21 +149,9 @@ long epicsShareAPI recDynLinkAddInput(recDynLink *precDynLink,char *pvname,
 	dynLinkPvt		*pdynLinkPvt;
 	struct dbAddr	dbaddr;
 	msgQCmd		cmd;
-
+    
 	if (recDynLinkDebug > 10)
-            printf("recDynLinkAddInput: precDynLink=%p\n", (void *)precDynLink);
-	if (precDynLink==NULL) {
-		printf("recDynLinkAddInput: precDynLink is NULL.\n");
-		return(-1);
-	}
-	if (pvname==NULL) {
-		printf("recDynLinkAddInput: pvname was not supplied.\n");
-		return(-1);
-	}
-	if (*pvname=='\0') {
-		printf("recDynLinkAddInput: pvname is blank\n");
-		return(-1);
-	}
+            printf("recDynLinkAddInput: precDynLink=%p\n", precDynLink); 
 	if (options&rdlDBONLY  && db_name_to_addr(pvname,&dbaddr)) return(-1);
 	if (!inpTaskId) recDynLinkStartTasks();
 	if (precDynLink->pdynLinkPvt) {
@@ -214,19 +191,7 @@ long epicsShareAPI recDynLinkAddOutput(recDynLink *precDynLink,char *pvname,
 	msgQCmd		cmd;
     
 	if (recDynLinkDebug > 10) 
-            printf("recDynLinkAddOutput: precDynLink=%p\n", (void *)precDynLink);
-	if (precDynLink==NULL) {
-		printf("recDynLinkAddInput: precDynLink is NULL.\n");
-		return(-1);
-	}
-	if (pvname==NULL) {
-		printf("recDynLinkAddOutput: pvname was not supplied.\n");
-		return(-1);
-	}
-	if (*pvname=='\0') {
-		printf("recDynLinkAddOutput: pvname is empty\n");
-		return(-1);
-	}
+            printf("recDynLinkAddOutput: precDynLink=%p\n", precDynLink); 
 	if (options&rdlDBONLY  && db_name_to_addr(pvname,&dbaddr)) return(-1);
 	if (!outTaskId) recDynLinkStartTasks();
 	if (precDynLink->pdynLinkPvt) {
@@ -265,7 +230,7 @@ long epicsShareAPI recDynLinkClear(recDynLink *precDynLink)
 	int i;
 
 	if (recDynLinkDebug > 10) 
-            printf("recDynLinkClear: precDynLink=%p\n", (void *)precDynLink);
+            printf("recDynLinkClear: precDynLink=%p\n", precDynLink);
 	pdynLinkPvt = precDynLink->pdynLinkPvt;
 	if (!pdynLinkPvt) {
 		printf("recDynLinkClear: recDynLinkSearch was never called\n");
@@ -276,20 +241,12 @@ long epicsShareAPI recDynLinkClear(recDynLink *precDynLink)
 	cmd.cmd = cmdClear;
 	if (precDynLink->onQueue) {
 		if (recDynLinkDebug > 1) 
-			printf("recDynLinkClear: waiting for queued action on %s\n", pdynLinkPvt->pvname);
-		/* try to wait until queued action is dispatched */
+                    printf("recDynLinkClear: waiting for queued action on %s\n", pdynLinkPvt->pvname);
 		for (i=0; i<10 && precDynLink->onQueue; i++) {
 			epicsThreadSleep(epicsThreadSleepQuantum());
 			epicsEventSignal(wakeUpEvt);
 		}
-		if (precDynLink->onQueue && pdynLinkPvt) {
-			printf("recDynLinkClear: abandoning queued action on '%s'\n", pdynLinkPvt->pvname);
-			if (pdynLinkPvt->io==ioInput) {
-				if (epicsMessageQueuePending(recDynLinkInpMsgQ) == 0) precDynLink->onQueue = 0;
-			} else {
-				if (epicsMessageQueuePending(recDynLinkOutMsgQ) == 0) precDynLink->onQueue = 0;
-			}
-		}
+		if (precDynLink->onQueue) printf("recDynLinkClear: abandoning queued action on %s\n", pdynLinkPvt->pvname);
 	}
 	if (pdynLinkPvt->io==ioInput) {
 		if (epicsMessageQueueTrySend(recDynLinkInpMsgQ, (void *)&cmd, sizeof(cmd))) {
@@ -452,10 +409,6 @@ long epicsShareAPI recDynLinkPut(recDynLink *precDynLink,void *pbuffer,size_t nR
 	return(recDynLinkPutCallback(precDynLink, pbuffer, nRequest, NULL));
 }
 
-/*
- * Note caller should interpret any non-zero return code as failure to initiate
- * an action, and caller should not wait for that action to complete.
- */
 long epicsShareAPI recDynLinkPutCallback(recDynLink *precDynLink,void *pbuffer,size_t nRequest,
 	recDynCallback notifyCallback)
 {
@@ -551,11 +504,7 @@ LOCAL void getCallback(struct event_handler_args eha)
 	recDynLink				*precDynLink;
 	dynLinkPvt				*pdynLinkPvt;
 	size_t					nRequest;
-   
-    if (eha.status != ECA_NORMAL) {
-		printf("recDynLink:getCallback: CA returns eha.status=%d\n", eha.status);
-		return;
-	}
+    
 	precDynLink = (recDynLink *)ca_puser(eha.chid);
 	if (!precDynLink) return;
 	pdynLinkPvt = precDynLink->pdynLinkPvt;
@@ -601,35 +550,23 @@ LOCAL void monitorCallback(struct event_handler_args eha)
 	long		*plong;
 	float		*pfloat;
 	double		*pdouble;
-   
-    if (eha.status != ECA_NORMAL) {
-		printf("recDynLink:monitorCallback: CA returns eha.status=%d\n", eha.status);
-		return;
-	}
+    
 	precDynLink = (recDynLink *)ca_puser(eha.chid);
 	if (!precDynLink) return;
 	pdynLinkPvt = precDynLink->pdynLinkPvt;
 	if (recDynLinkDebug >= 5) {
-		printf("recDynLink:monitorCallback:  PV=%s, nRequest=%d, status=%d\n",
-			pdynLinkPvt->pvname, pdynLinkPvt->nRequest, eha.status);
-		if (recDynLinkDebug >= 15) {
-			printf("recDynLink:monitorCallback:  eha.usr=%p, .chid=%p, .type=%ld, .count=%ld, .dbr=%p, .status=%d\n",
-				(void *)eha.usr, (void *)eha.chid, eha.type, eha.count, (void *)eha.dbr, eha.status);
-		}
+		printf("recDynLink:monitorCallback:  PV=%s, nRequest=%d\n",
+			pdynLinkPvt->pvname, pdynLinkPvt->nRequest);
 	}
 	if (pdynLinkPvt->pbuffer) {
 		epicsMutexMustLock(pdynLinkPvt->lock);
 		if (count>=pdynLinkPvt->nRequest) count = pdynLinkPvt->nRequest;
 		pdbr_time_string = (struct dbr_time_string *)pbuffer;
-		if (recDynLinkDebug >= 15) {printf("recDynLink:monitorCallback: pdbr_time_string=%p\n", (void *)pdbr_time_string); epicsThreadSleep(.1);}
 		timeType = dbf_type_to_DBR_TIME(mapNewToOld[pdynLinkPvt->dbrType]);
 		pdata = (void *)((char *)pbuffer + dbr_value_offset[timeType]);
-		if (recDynLinkDebug >= 15) {printf("recDynLink:monitorCallback: copying time stamp\n"); epicsThreadSleep(.1);}
 		pdynLinkPvt->timestamp = pdbr_time_string->stamp; /*array copy*/
-		if (recDynLinkDebug >= 15) {printf("recDynLink:monitorCallback: copying status\n"); epicsThreadSleep(.1);}
 		pdynLinkPvt->status = pdbr_time_string->status;
 		pdynLinkPvt->severity = pdbr_time_string->severity;
-		if (recDynLinkDebug >= 15) printf("recDynLink:monitorCallback: calling memcpy\n");
 		memcpy(pdynLinkPvt->pbuffer,pdata,
 			(count * dbr_size[mapNewToOld[pdynLinkPvt->dbrType]]));
 		epicsMutexUnlock(pdynLinkPvt->lock);
@@ -637,7 +574,6 @@ LOCAL void monitorCallback(struct event_handler_args eha)
 			printf("recDynLink:monitorCallback: array of %d elements\n", pdynLinkPvt->nRequest);
 			switch (mapNewToOld[pdynLinkPvt->dbrType]) {
 			case DBF_STRING: case DBF_CHAR:
-				if (recDynLinkDebug >= 15) printf("recDynLink:monitorCallback: case DBF_STRING\n");
 				pchar = (char *)pdata;
 				printf("...char/string: %c, %c, %c...\n", pchar[0], pchar[1], pchar[2]);
 				break;
@@ -664,12 +600,8 @@ LOCAL void monitorCallback(struct event_handler_args eha)
 			}
 		}
 	}
-	if (recDynLinkDebug >= 15) printf("recDynLink:monitorCallback: executing client callback\n");
-
 	if (pdynLinkPvt->monitorCallback)
 		(*pdynLinkPvt->monitorCallback)(precDynLink);
-	if (recDynLinkDebug >= 15) printf("recDynLink:monitorCallback: exit\n");
-
 }
 
 LOCAL void userGetCallback(struct event_handler_args eha)
@@ -681,11 +613,7 @@ LOCAL void userGetCallback(struct event_handler_args eha)
 	struct dbr_time_string	*pdbr_time_string;
 	void		*pdata;
 	short		timeType;
-
-    if (eha.status != ECA_NORMAL) {
-		printf("recDynLink:userGetCallback: CA returns eha.status=%d\n", eha.status);
-		return;
-	}
+    
 	precDynLink = (recDynLink *)ca_puser(eha.chid);
 	if (!precDynLink) return;
 	pdynLinkPvt = precDynLink->pdynLinkPvt;
@@ -714,26 +642,7 @@ LOCAL void notifyCallback(struct event_handler_args eha)
 {
 	recDynLink	*precDynLink;
 	dynLinkPvt	*pdynLinkPvt;
-
-    if (eha.status != ECA_NORMAL) {
-		printf("recDynLink:notifyCallback: CA returns eha.status=%d (%s)\n",
-			eha.status, ca_message(eha.status));
-/* try to find out who sent the command that produced this result */
-#if 1
-		precDynLink = (recDynLink *)ca_puser(eha.chid);
-		if (!precDynLink) {
-			printf("recDynLink:notifyCallback: ...Can't examine recDynLink\n");
-			return;
-		}
-		pdynLinkPvt = precDynLink->pdynLinkPvt;
-		if (!pdynLinkPvt) {
-			printf("recDynLink:notifyCallback: ...Can't examine dynLinkPvt\n");
-			return;
-		}
-		printf("recDynLink:notifyCallback: ...pvname='%s'\n", pdynLinkPvt->pvname);
-#endif
-		return;
-	}
+    
 	precDynLink = (recDynLink *)ca_puser(eha.chid);
 	if (!precDynLink) return;
 	pdynLinkPvt = precDynLink->pdynLinkPvt;
@@ -753,7 +662,6 @@ LOCAL void recDynLinkInp(void)
 	msgQCmd		cmd;
 	int			didGetCallback=0;
 
-	epicsAtExit(exit_handler, 0);
 	taskwdInsert(epicsThreadGetIdSelf(),NULL,NULL);
 	SEVCHK(ca_context_create(ca_enable_preemptive_callback),"ca_context_create");
 	pCaInputContext = ca_current_context();
@@ -766,7 +674,7 @@ LOCAL void recDynLinkInp(void)
 		pCaInputContext = ca_current_context();
 	}
 	if (retried) printf("recDynLinkInp: ca_current_context() returned non-NULL\n");
-	while (!shutting_down) {
+	while(TRUE) {
 		didGetCallback = 0;
 		while (epicsMessageQueuePending(recDynLinkInpMsgQ) && interruptAccept) {
 			if (recDynLinkDebug > 5) 
@@ -789,15 +697,14 @@ LOCAL void recDynLinkInp(void)
 			precDynLink = cmd.data.precDynLink;
 			pdynLinkPvt = precDynLink->pdynLinkPvt;
 			if (recDynLinkDebug > 5) 
-                            printf("recDynLinkInp: precDynLink=%p", (void *)precDynLink); 
+                            printf("recDynLinkInp: precDynLink=%p", precDynLink); 
 			if (pdynLinkPvt==NULL) {
-				printf("\nrecDynLinkInp: ***ERROR***: pdynLinkPvt==%p (precDynLink==%p)\n",
-					(void *)pdynLinkPvt, (void *)precDynLink);
+				printf("\n***ERROR***: pdynLinkPvt=%p\n", pdynLinkPvt);
 				precDynLink->onQueue--;
 				continue;
 			} else {
 				if (recDynLinkDebug > 5) 
-					printf(", pvname=%s\n", pdynLinkPvt->pvname);
+                                    printf(", pvname=%s\n", pdynLinkPvt->pvname);
 			}
 			switch (cmd.cmd) {
 			case (cmdSearch) :
@@ -853,7 +760,6 @@ LOCAL void recDynLinkOut(void)
 	msgQCmd		cmd;
 	int			caStatus;
 	
-	epicsAtExit(exit_handler, 0);
 	taskwdInsert(epicsThreadGetIdSelf(),NULL,NULL);
 	/* SEVCHK(ca_context_create(ca_enable_preemptive_callback),"ca_context_create"); */
 	while (pCaInputContext == NULL) {
@@ -865,16 +771,16 @@ LOCAL void recDynLinkOut(void)
 	}
 	if (retried) printf("recDynLinkOut: got CA context\n");
 	SEVCHK(ca_attach_context(pCaInputContext), "ca_attach_context");
-	while (!shutting_down) {
+	while(TRUE) {
 		epicsEventWaitWithTimeout(wakeUpEvt,1.0);
 		while (epicsMessageQueuePending(recDynLinkOutMsgQ) && interruptAccept) {
 			if (recDynLinkDebug > 10) 
-				printf("epicsMessageQueuePending(recDynLinkOutMsgQ)=%d\n", 
+                            printf("epicsMessageQueuePending(recDynLinkOutMsgQ)=%d\n", 
 				epicsMessageQueuePending(recDynLinkOutMsgQ));
 			n = epicsMessageQueueReceive(recDynLinkOutMsgQ, (void *)&cmd,
 				sizeof(msgQCmd));
 			if (recDynLinkDebug > 10) 
-				printf("recDynLinkOut: got message of size %d, cmd=%s\n", n, commands[cmd.cmd]); 
+                            printf("recDynLinkOut: got message of size %d, cmd=%s\n", n, commands[cmd.cmd]); 
 			if (n != s) {
 				printf("recDynLinkOutTask: got %d bytes, expected %d\n", n, s);
 				continue;
@@ -892,19 +798,14 @@ LOCAL void recDynLinkOut(void)
 			precDynLink = cmd.data.precDynLink;
 			pdynLinkPvt = precDynLink->pdynLinkPvt;
 			if (recDynLinkDebug > 10) 
-				printf("recDynLinkOut: precDynLink=%p", (void *)precDynLink); 
+                            printf("recDynLinkOut: precDynLink=%p", precDynLink); 
 			if (pdynLinkPvt==NULL) {
-				printf("\nrecDynLinkOut: ***ERROR***: pdynLinkPvt==%p (precDynLink==%p)\n",
-					(void *)pdynLinkPvt, (void *)precDynLink);
+				printf("\n***ERROR***: pdynLinkPvt=%p\n", pdynLinkPvt);
 				precDynLink->onQueue--;
-				continue;
-			} else if (pdynLinkPvt->pvname[0] == '\0') {
-				printf("\nrecDynLinkOut: ***ERROR***: pvname=='' (precDynLink==%p)\n",
-					(void *)precDynLink);
 				continue;
 			} else {
 				if (recDynLinkDebug > 10) 
-					printf(", pvname=%s\n", pdynLinkPvt->pvname);
+                                    printf(", pvname=%s\n", pdynLinkPvt->pvname);
 			}
 			switch (cmd.cmd) {
 			case (cmdSearch):

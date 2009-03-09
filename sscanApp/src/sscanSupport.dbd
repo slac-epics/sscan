@@ -1,7 +1,7 @@
 ################
 # RECORD SUPPORT
 ################
-#include "busyRecord.dbd"
+include "busyRecord.dbd"
 include "scanparmRecord.dbd"
 include "sscanRecord.dbd"
 
@@ -19,7 +19,6 @@ include "sscanRecord.dbd"
 ################
 registrar(saveDataRegistrar)
 variable("recDynLinkDebug", int)
-variable("recDynLinkQsize", int)
 variable("debug_saveData", int)
 variable("debug_saveDataMsg", int)
 variable("saveData_MessagePolicy", int)
@@ -27,4 +26,3 @@ variable("sscanRecordDebug", int)
 variable("sscanRecordViewPos", int)
 variable("sscanRecordDontCheckLimits", int)
 variable("sscanRecordLookupTime", int)
-variable("sscanRecordConnectWaitSeconds", int)

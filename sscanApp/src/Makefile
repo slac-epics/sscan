@@ -19,11 +19,13 @@ Com_DIR          = $(EPICS_BASE_LIB)
 
 DBDINC += scanparmRecord
 DBDINC += sscanRecord
-#DBDINC += busyRecord
+DBDINC += busyRecord
 
 # <name>.dbd will be created from <name>Include.dbd
 DBD += sscan.dbd
 DBD += sscanSupport.dbd
+DBD += sscanVXSupport.dbd
+DBD += sscanWin32Support.dbd
 DBD += sscanMenu.dbd
 
 INC += recDynLink.h
@@ -34,21 +36,17 @@ LIBRARY_IOC += sscan
 
 sscan_SRCS += sscanRecord.c
 sscan_SRCS += scanparmRecord.c
-#sscan_SRCS += busyRecord.c
+sscan_SRCS += busyRecord.c
 sscan_SRCS += recDynLink.c
 sscan_SRCS += req_file.c
 
-
 # save scan data stuff
 # XDR not available on WIN32
-ifeq ($(OS_CLASS), WIN32)
-sscan_SRCS += saveDataWin32.c
-else
+ifneq ($(OS_CLASS), WIN32)
 sscan_SRCS += xdr_lib.c
 sscan_SRCS += saveData.c
 sscan_SRCS_vxWorks += xdr_stdio.c
 endif
-
 
 sscan_SYS_LIBS_cygwin32 += rpc
 sscan_LIBS += $(EPICS_BASE_IOC_LIBS)
