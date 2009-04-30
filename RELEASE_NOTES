@@ -12,6 +12,8 @@
 #  Rev:  dd-mmm-yyyy, Reviewer's Name    (USERNAME)
 #--------------------------------------------------------------
 #  Mod:
+#        29-Apr-2009, K. Luchini          (LUCHINI):
+#          add sscan-R2-6-3-lcls1
 #        21-Feb-2008, K. Luchini          (LUCHINI):
 #          add sscan-R2-5-2-lcls3
 #        04-Jan-2008, S. Schuh            (SCHUHS)
@@ -19,11 +21,11 @@
 #
 #==============================================================
 #
-
 sscan-R2-6-3-lcls1:
-                Build against base-R3-14-10
-                READ the documentation directory
-                from the APS
+                Build against base-R3-14-8-2 and RTEMS-4.9.1
+                Ernest READ the documentation directory
+                from the APS and updated files necessary to 
+                build with base-R3-14-10 for Arturo.
 
 sscan-R2-5-2-lcls3: Build against base-R3-14-9-lcls1
                     Replace CONFIG_APP with CONFIG_SITE
