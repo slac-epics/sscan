@@ -34,10 +34,10 @@ INC += recDynLink.h
 
 LIBRARY_IOC += sscan
 
+sscan_SRCS += recDynLink.c
 sscan_SRCS += sscanRecord.c
 sscan_SRCS += scanparmRecord.c
 sscan_SRCS += busyRecord.c
-sscan_SRCS += recDynLink.c
 sscan_SRCS += req_file.c
 
 # save scan data stuff
