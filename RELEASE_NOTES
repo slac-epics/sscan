@@ -12,6 +12,8 @@
 #  Rev:  dd-mmm-yyyy, Reviewer's Name    (USERNAME)
 #--------------------------------------------------------------
 #  Mod:
+#        19-Mar-2010, S. Hoobler          (SONYA):
+#          add sscan-R2-6-3-lcls3
 #        29-Apr-2009, K. Luchini          (LUCHINI):
 #          add sscan-R2-6-3-lcls1
 #        21-Feb-2008, K. Luchini          (LUCHINI):
@@ -21,8 +23,12 @@
 #
 #==============================================================
 #
+sscan-R2-6-3-lcls3:  Built against rtems 4.9.4 and EPICS BASE:
+                     base-R3-14-8-2-lcls6
+
 sscan-R2-6-3-lcls2:  Built against rtems 4.9.3 and EPICS BASE:
                      base-R3-14-8-2-lcls5
+
 sscan-R2-6-3-lcls1:
                 Build against base-R3-14-8-2 and RTEMS-4.9.1
                 Ernest READ the documentation directory
