@@ -14,11 +14,12 @@ recordtype(sscan) {
 		interest(1)
 		size(40)
 	}
-	field(CMND,DBF_ENUM) {
+	field(CMND,DBF_MENU) {
 		prompt("Command Field")
 		asl(ASL0)
 		special(SPC_MOD)
 		interest(1)
+		menu(sscanCMND)
 	}
 	field(ALRT,DBF_UCHAR) {
 		prompt("Operator Alert")
@@ -126,6 +127,11 @@ recordtype(sscan) {
 		special(SPC_NOMOD)
 		interest(1)
 	}
+	field(BCPT,DBF_LONG) {
+		prompt("Bufferred Current Point")
+		special(SPC_NOMOD)
+		interest(1)
+	}
 	field(DPT,DBF_LONG) {
 		prompt("Desired Point")
 		special(119)
@@ -148,6 +154,19 @@ recordtype(sscan) {
 		special(SPC_NOMOD)
 		extra("epicsTimeStamp	tolp")
 		interest(2)
+	}
+	field(TLAP,DBF_NOACCESS) {
+		prompt("Time of Last Array Posting")
+		special(SPC_NOMOD)
+		extra("epicsTimeStamp	tlap")
+		interest(2)
+	}
+	field(ATIME,DBF_FLOAT) {
+		prompt("Array post time period")
+		promptgroup(GUI_INPUTS)
+		asl(ASL0)
+		special(SPC_MOD)
+		interest(1)
 	}
 	field(P1PV,DBF_STRING) {
 		prompt("Positioner 1 PV Name")
@@ -1452,6 +1471,13 @@ recordtype(sscan) {
 		size(4)
 		extra("double *         p1ra")
 	}
+	field(P1CA,DBF_NOACCESS) {
+		prompt("P1 Current Readback Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("double *         p1ca")
+	}
 	field(P1FS,DBF_MENU) {
 		prompt("P1 Freeze Start Pos")
 		promptgroup(GUI_OUTPUT)
@@ -1616,6 +1642,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("double *         p2ra")
+	}
+	field(P2CA,DBF_NOACCESS) {
+		prompt("P2 Current Readback Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("double *         p2ca")
 	}
 	field(P2FS,DBF_MENU) {
 		prompt("P2 Freeze Start Pos")
@@ -1782,6 +1815,13 @@ recordtype(sscan) {
 		size(4)
 		extra("double *         p3ra")
 	}
+	field(P3CA,DBF_NOACCESS) {
+		prompt("P3 Current Readback Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("double *         p3ca")
+	}
 	field(P3FS,DBF_MENU) {
 		prompt("P3 Freeze Start Pos")
 		promptgroup(GUI_OUTPUT)
@@ -1947,6 +1987,13 @@ recordtype(sscan) {
 		size(4)
 		extra("double *         p4ra")
 	}
+	field(P4CA,DBF_NOACCESS) {
+		prompt("P4 Current Readback Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("double *         p4ca")
+	}
 	field(P4FS,DBF_MENU) {
 		prompt("P4 Freeze Start Pos")
 		promptgroup(GUI_OUTPUT)
@@ -2034,6 +2081,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d01da")
 	}
+	field(D01CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d01ca")
+	}
 	field(D01CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -2083,6 +2137,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d02da")
+	}
+	field(D02CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d02ca")
 	}
 	field(D02CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -2134,6 +2195,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d03da")
 	}
+	field(D03CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d03ca")
+	}
 	field(D03CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -2183,6 +2251,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d04da")
+	}
+	field(D04CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d04ca")
 	}
 	field(D04CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -2234,6 +2309,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d05da")
 	}
+	field(D05CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d05ca")
+	}
 	field(D05CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -2283,6 +2365,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d06da")
+	}
+	field(D06CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d06ca")
 	}
 	field(D06CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -2334,6 +2423,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d07da")
 	}
+	field(D07CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d07ca")
+	}
 	field(D07CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -2383,6 +2479,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d08da")
+	}
+	field(D08CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d08ca")
 	}
 	field(D08CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -2434,6 +2537,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d09da")
 	}
+	field(D09CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d09ca")
+	}
 	field(D09CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -2483,6 +2593,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d10da")
+	}
+	field(D10CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d10ca")
 	}
 	field(D10CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -2534,6 +2651,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d11da")
 	}
+	field(D11CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d11ca")
+	}
 	field(D11CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -2583,6 +2707,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d12da")
+	}
+	field(D12CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d12ca")
 	}
 	field(D12CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -2634,6 +2765,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d13da")
 	}
+	field(D13CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d13ca")
+	}
 	field(D13CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -2683,6 +2821,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d14da")
+	}
+	field(D14CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d14ca")
 	}
 	field(D14CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -2734,6 +2879,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d15da")
 	}
+	field(D15CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d15ca")
+	}
 	field(D15CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -2783,6 +2935,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d16da")
+	}
+	field(D16CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d16ca")
 	}
 	field(D16CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -2834,6 +2993,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d17da")
 	}
+	field(D17CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d17ca")
+	}
 	field(D17CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -2883,6 +3049,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d18da")
+	}
+	field(D18CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d18ca")
 	}
 	field(D18CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -2934,6 +3107,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d19da")
 	}
+	field(D19CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d19ca")
+	}
 	field(D19CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -2983,6 +3163,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d20da")
+	}
+	field(D20CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d20ca")
 	}
 	field(D20CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -3034,6 +3221,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d21da")
 	}
+	field(D21CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d21ca")
+	}
 	field(D21CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -3083,6 +3277,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d22da")
+	}
+	field(D22CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d22ca")
 	}
 	field(D22CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -3134,6 +3335,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d23da")
 	}
+	field(D23CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d23ca")
+	}
 	field(D23CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -3183,6 +3391,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d24da")
+	}
+	field(D24CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d24ca")
 	}
 	field(D24CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -3234,6 +3449,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d25da")
 	}
+	field(D25CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d25ca")
+	}
 	field(D25CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -3283,6 +3505,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d26da")
+	}
+	field(D26CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d26ca")
 	}
 	field(D26CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -3334,6 +3563,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d27da")
 	}
+	field(D27CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d27ca")
+	}
 	field(D27CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -3383,6 +3619,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d28da")
+	}
+	field(D28CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d28ca")
 	}
 	field(D28CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -3434,6 +3677,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d29da")
 	}
+	field(D29CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d29ca")
+	}
 	field(D29CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -3483,6 +3733,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d30da")
+	}
+	field(D30CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d30ca")
 	}
 	field(D30CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -3534,6 +3791,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d31da")
 	}
+	field(D31CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d31ca")
+	}
 	field(D31CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -3583,6 +3847,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d32da")
+	}
+	field(D32CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d32ca")
 	}
 	field(D32CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -3634,6 +3905,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d33da")
 	}
+	field(D33CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d33ca")
+	}
 	field(D33CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -3683,6 +3961,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d34da")
+	}
+	field(D34CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d34ca")
 	}
 	field(D34CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -3734,6 +4019,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d35da")
 	}
+	field(D35CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d35ca")
+	}
 	field(D35CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -3783,6 +4075,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d36da")
+	}
+	field(D36CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d36ca")
 	}
 	field(D36CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -3834,6 +4133,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d37da")
 	}
+	field(D37CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d37ca")
+	}
 	field(D37CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -3883,6 +4189,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d38da")
+	}
+	field(D38CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d38ca")
 	}
 	field(D38CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -3934,6 +4247,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d39da")
 	}
+	field(D39CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d39ca")
+	}
 	field(D39CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -3983,6 +4303,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d40da")
+	}
+	field(D40CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d40ca")
 	}
 	field(D40CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -4034,6 +4361,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d41da")
 	}
+	field(D41CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d41ca")
+	}
 	field(D41CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -4083,6 +4417,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d42da")
+	}
+	field(D42CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d42ca")
 	}
 	field(D42CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -4134,6 +4475,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d43da")
 	}
+	field(D43CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d43ca")
+	}
 	field(D43CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -4183,6 +4531,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d44da")
+	}
+	field(D44CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d44ca")
 	}
 	field(D44CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -4234,6 +4589,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d45da")
 	}
+	field(D45CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d45ca")
+	}
 	field(D45CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -4283,6 +4645,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d46da")
+	}
+	field(D46CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d46ca")
 	}
 	field(D46CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -4334,6 +4703,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d47da")
 	}
+	field(D47CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d47ca")
+	}
 	field(D47CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -4383,6 +4759,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d48da")
+	}
+	field(D48CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d48ca")
 	}
 	field(D48CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -4434,6 +4817,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d49da")
 	}
+	field(D49CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d49ca")
+	}
 	field(D49CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -4483,6 +4873,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d50da")
+	}
+	field(D50CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d50ca")
 	}
 	field(D50CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -4534,6 +4931,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d51da")
 	}
+	field(D51CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d51ca")
+	}
 	field(D51CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -4583,6 +4987,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d52da")
+	}
+	field(D52CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d52ca")
 	}
 	field(D52CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -4634,6 +5045,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d53da")
 	}
+	field(D53CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d53ca")
+	}
 	field(D53CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -4683,6 +5101,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d54da")
+	}
+	field(D54CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d54ca")
 	}
 	field(D54CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -4734,6 +5159,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d55da")
 	}
+	field(D55CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d55ca")
+	}
 	field(D55CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -4783,6 +5215,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d56da")
+	}
+	field(D56CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d56ca")
 	}
 	field(D56CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -4834,6 +5273,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d57da")
 	}
+	field(D57CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d57ca")
+	}
 	field(D57CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -4883,6 +5329,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d58da")
+	}
+	field(D58CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d58ca")
 	}
 	field(D58CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -4934,6 +5387,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d59da")
 	}
+	field(D59CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d59ca")
+	}
 	field(D59CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -4983,6 +5443,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d60da")
+	}
+	field(D60CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d60ca")
 	}
 	field(D60CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -5034,6 +5501,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d61da")
 	}
+	field(D61CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d61ca")
+	}
 	field(D61CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -5083,6 +5557,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d62da")
+	}
+	field(D62CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d62ca")
 	}
 	field(D62CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -5134,6 +5615,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d63da")
 	}
+	field(D63CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d63ca")
+	}
 	field(D63CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -5183,6 +5671,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d64da")
+	}
+	field(D64CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d64ca")
 	}
 	field(D64CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -5234,6 +5729,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d65da")
 	}
+	field(D65CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d65ca")
+	}
 	field(D65CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -5283,6 +5785,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d66da")
+	}
+	field(D66CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d66ca")
 	}
 	field(D66CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -5334,6 +5843,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d67da")
 	}
+	field(D67CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d67ca")
+	}
 	field(D67CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -5383,6 +5899,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d68da")
+	}
+	field(D68CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d68ca")
 	}
 	field(D68CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -5434,6 +5957,13 @@ recordtype(sscan) {
 		size(4)
 		extra("float *          d69da")
 	}
+	field(D69CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d69ca")
+	}
 	field(D69CV,DBF_FLOAT) {
 		prompt("Current Value")
 		asl(ASL0)
@@ -5483,6 +6013,13 @@ recordtype(sscan) {
 		special(SPC_DBADDR)
 		size(4)
 		extra("float *          d70da")
+	}
+	field(D70CA,DBF_NOACCESS) {
+		prompt("Current Data Array")
+		asl(ASL0)
+		special(SPC_DBADDR)
+		size(4)
+		extra("float *          d70ca")
 	}
 	field(D70CV,DBF_FLOAT) {
 		prompt("Current Value")
@@ -5639,5 +6176,10 @@ recordtype(sscan) {
 		special(SPC_NOMOD)
 		interest(1)
 		menu(sscanDSTATE)
+	}
+	field(COPYTO,DBF_LONG) {
+		prompt("Copy Last Pt Thru")
+		promptgroup(GUI_COMMON)
+		interest(1)
 	}
 }
