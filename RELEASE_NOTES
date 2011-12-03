@@ -23,6 +23,10 @@
 #
 #==============================================================
 #
+sscan-R2-7-lcls1:    Initial New release brought in from APS
+                     Read Release Notes from APS:
+                     http://www.aps.anl.gov/bcda/synApps/sscan/sscanReleaseNotes.html 
+
 sscan-R2-6-3-lcls3:  Built against rtems 4.9.4 and EPICS BASE:
                      base-R3-14-8-2-lcls6
 
