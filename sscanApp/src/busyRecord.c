@@ -11,8 +11,7 @@
 #define GEN_SIZE_OFFSET
 #include	<busyRecord.h>
 #undef  GEN_SIZE_OFFSET
-#include "menuOmsl.h"
-#include	<epicsExport.h>
+#include        <epicsExport.h>
 
 /* this has been removed from dbDefs.h*/
 #define CLOSED_LOOP 1
@@ -79,13 +78,11 @@ static long
 process(busyRecord *pbusy)
 {
 	long            status = 0;
-	unsigned short  val = 0, monitor_mask;
+	unsigned short  val = 0;
 
 	pbusy->pact = TRUE;
 	if ((pbusy->omsl == CLOSED_LOOP) && (pbusy->dol.type != CONSTANT)) {
-		if ((pbusy->dol.type != CONSTANT) && (pbusy->omsl == menuOmslclosed_loop)) {
-			status = dbGetLink(&pbusy->dol, DBR_USHORT, &val, 0, 0);
-		}
+		status = dbGetLink(&pbusy->dol, DBR_USHORT, &val, 0, 0);
 		if (status == 0) {
         	(void) recGblResetAlarms(pbusy);
 			pbusy->val = val;
@@ -97,10 +94,8 @@ process(busyRecord *pbusy)
 	}
 
 	recGblGetTimeStamp(pbusy);
-	monitor_mask = recGblResetAlarms(pbusy);
-
 	if (pbusy->val != pbusy->lval) {
-		db_post_events(pbusy, &pbusy->val, monitor_mask | DBE_VALUE | DBE_LOG);
+		db_post_events(pbusy, &pbusy->val, DBE_VALUE | DBE_LOG);
 	}
 	if (pbusy->val == 0) recGblFwdLink(pbusy);
 	pbusy->lval = pbusy->val;

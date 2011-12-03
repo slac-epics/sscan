@@ -47,6 +47,7 @@ of this distribution.
 #include <caerr.h>
 #include <caeventmask.h>
 #include <tsDefs.h>
+#include <errlog.h>
 #include <epicsExport.h>
 #include <epicsExit.h>
 #include "recDynLink.h"
@@ -162,7 +163,8 @@ long epicsShareAPI recDynLinkAddInput(recDynLink *precDynLink,char *pvname,
 	msgQCmd		cmd;
 
 	if (recDynLinkDebug > 10)
-            printf("recDynLinkAddInput: precDynLink=%p\n", (void *)precDynLink);
+            printf("recDynLinkAddInput: precDynLink=%p, pvname='%s'\n",
+				(void *)precDynLink, pvname);
 	if (precDynLink==NULL) {
 		printf("recDynLinkAddInput: precDynLink is NULL.\n");
 		return(-1);
@@ -214,7 +216,8 @@ long epicsShareAPI recDynLinkAddOutput(recDynLink *precDynLink,char *pvname,
 	msgQCmd		cmd;
     
 	if (recDynLinkDebug > 10) 
-            printf("recDynLinkAddOutput: precDynLink=%p\n", (void *)precDynLink);
+            printf("recDynLinkAddOutput: precDynLink=%p, pvname='%s'\n",
+				(void *)precDynLink, pvname);
 	if (precDynLink==NULL) {
 		printf("recDynLinkAddInput: precDynLink is NULL.\n");
 		return(-1);
@@ -396,8 +399,8 @@ long epicsShareAPI recDynLinkGet(recDynLink *precDynLink,void *pbuffer,size_t *n
 	memcpy(pbuffer,pdynLinkPvt->pbuffer,
 		(*nRequest * dbr_size[mapNewToOld[pdynLinkPvt->dbrType]]));
 	if (recDynLinkDebug > 5) 
-            printf("recDynLinkGet: PV=%s, user asked for=%ld, got %d\n", pdynLinkPvt->pvname,
-		save_nRequest, *nRequest);
+            printf("recDynLinkGet: PV=%s, user asked for=%ld, got %ld\n", pdynLinkPvt->pvname,
+		save_nRequest, (long)*nRequest);
  	if (timestamp) *timestamp = pdynLinkPvt->timestamp; /*array copy*/
 	if (status) *status = pdynLinkPvt->status;
 	if (severity) *severity = pdynLinkPvt->severity;
@@ -433,8 +436,8 @@ long epicsShareAPI recDynLinkGetCallback(recDynLink *precDynLink, size_t *nReque
 	cmd.cmd = cmdGetCallback;
 	precDynLink->onQueue++;
 	if (recDynLinkDebug > 5) 
-            printf("recDynLinkGetCallback: PV=%s, nRequest=%d\n", pdynLinkPvt->pvname,
-		pdynLinkPvt->nRequest); 
+            printf("recDynLinkGetCallback: PV=%s, nRequest=%ld\n", pdynLinkPvt->pvname,
+		(long)pdynLinkPvt->nRequest); 
 	if (epicsMessageQueueTrySend(recDynLinkOutMsgQ, (void *)&cmd, sizeof(cmd))) {
 		errMessage(0,"recDynLinkGetCallback: epicsMessageQueueTrySend error");
 		status = RINGBUFF_PUT_ERROR;
@@ -570,7 +573,7 @@ LOCAL void getCallback(struct event_handler_args eha)
 	} else {
 		pdynLinkPvt->nRequest = ca_element_count(pdynLinkPvt->chid);
 		if (recDynLinkDebug >= 5)
-			printf("recDynLink:getCallback: array of %d elements\n", pdynLinkPvt->nRequest);
+			printf("recDynLink:getCallback: array of %ld elements\n", (long)pdynLinkPvt->nRequest);
 	}
 	nRequest = pdynLinkPvt->nRequest;
 	pdynLinkPvt->pbuffer = calloc(nRequest,
@@ -610,8 +613,8 @@ LOCAL void monitorCallback(struct event_handler_args eha)
 	if (!precDynLink) return;
 	pdynLinkPvt = precDynLink->pdynLinkPvt;
 	if (recDynLinkDebug >= 5) {
-		printf("recDynLink:monitorCallback:  PV=%s, nRequest=%d, status=%d\n",
-			pdynLinkPvt->pvname, pdynLinkPvt->nRequest, eha.status);
+		printf("recDynLink:monitorCallback:  PV=%s, nRequest=%ld, status=%d\n",
+			pdynLinkPvt->pvname, (long)pdynLinkPvt->nRequest, eha.status);
 		if (recDynLinkDebug >= 15) {
 			printf("recDynLink:monitorCallback:  eha.usr=%p, .chid=%p, .type=%ld, .count=%ld, .dbr=%p, .status=%d\n",
 				(void *)eha.usr, (void *)eha.chid, eha.type, eha.count, (void *)eha.dbr, eha.status);
@@ -634,7 +637,7 @@ LOCAL void monitorCallback(struct event_handler_args eha)
 			(count * dbr_size[mapNewToOld[pdynLinkPvt->dbrType]]));
 		epicsMutexUnlock(pdynLinkPvt->lock);
 		if ((count > 1) && (recDynLinkDebug >= 5)) {
-			printf("recDynLink:monitorCallback: array of %d elements\n", pdynLinkPvt->nRequest);
+			printf("recDynLink:monitorCallback: array of %ld elements\n", (long)pdynLinkPvt->nRequest);
 			switch (mapNewToOld[pdynLinkPvt->dbrType]) {
 			case DBF_STRING: case DBF_CHAR:
 				if (recDynLinkDebug >= 15) printf("recDynLink:monitorCallback: case DBF_STRING\n");
@@ -690,8 +693,8 @@ LOCAL void userGetCallback(struct event_handler_args eha)
 	if (!precDynLink) return;
 	pdynLinkPvt = precDynLink->pdynLinkPvt;
 	if (recDynLinkDebug >= 5) {
-		printf("recDynLink:userGetCallback:  PV=%s, nRequest=%d\n",
-			pdynLinkPvt->pvname, pdynLinkPvt->nRequest);
+		printf("recDynLink:userGetCallback:  PV=%s, nRequest=%ld\n",
+			pdynLinkPvt->pvname, (long)pdynLinkPvt->nRequest);
 	}
 	if (pdynLinkPvt->pbuffer) {
 		epicsMutexMustLock(pdynLinkPvt->lock);
@@ -797,7 +800,7 @@ LOCAL void recDynLinkInp(void)
 				continue;
 			} else {
 				if (recDynLinkDebug > 5) 
-					printf(", pvname=%s\n", pdynLinkPvt->pvname);
+					printf(", pvname='%s'\n", pdynLinkPvt->pvname);
 			}
 			switch (cmd.cmd) {
 			case (cmdSearch) :
@@ -904,7 +907,7 @@ LOCAL void recDynLinkOut(void)
 				continue;
 			} else {
 				if (recDynLinkDebug > 10) 
-					printf(", pvname=%s\n", pdynLinkPvt->pvname);
+					printf(", pvname='%s'\n", pdynLinkPvt->pvname);
 			}
 			switch (cmd.cmd) {
 			case (cmdSearch):
@@ -942,8 +945,8 @@ LOCAL void recDynLinkOut(void)
 				break;
 			case (cmdGetCallback):
 				if (recDynLinkDebug > 5) 
-                                    printf("recDynLinkOut: GetCallback PV=%s, nRequest=%d\n",
-					pdynLinkPvt->pvname, pdynLinkPvt->nRequest); 
+                                    printf("recDynLinkOut: GetCallback PV=%s, nRequest=%ld\n",
+					pdynLinkPvt->pvname, (long)pdynLinkPvt->nRequest); 
 
 				status = ca_array_get_callback(
 					dbf_type_to_DBR_TIME(mapNewToOld[pdynLinkPvt->dbrType]),

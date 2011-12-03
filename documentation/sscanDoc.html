@@ -17,11 +17,11 @@ The following documentation is available:
 <dt><a href="sscanRecord.html">sscanRecord.html</a>
 <dd>The sscan record documentation.  This also includes some information on saveData, the synApps
 client program that writes scan data to disk.
+<dt><a href="scanparmRecord.html">scanparmRecord.html</a>
+<dd>The scanparm record documentation.
 <dt><a href="saveData_fileFormat.txt">saveData_fileFormat.txt</a>
 <dd>description of the 'MDA' (multidimensional archive) file format written by saveData.
 This file format uses the XDR standard for cross-platform compatibility. 
-<dt><a href="busyRecord.html">busyRecord.html</a>
-<dd>The busy record documentation
 <dt><a href="saveData.req">saveData.req</a>
 <dd>Sample copy of the file that tells saveData what to do.
 <dt><a href="XDR_RFC1014.txt">XDR_RFC1014.txt</a>
@@ -47,7 +47,11 @@ tar xf sscan_R2-3.tar
 </pre>
 
 Usually this is done in an EPICS 'support' directory.  It will produce the
-subdirectory <pre>sscan/2-3</pre></li>
+subdirectory <pre>sscan/2-3</pre>
+
+<blockquote><i>
+  in synApps 5.5 and higher, it will produce <code>sscan-2-6-6</code> -- i.e., no subdirectory.
+</i></blockquote>
 
 <li>Edit <b>sscan</b>'s <tt>configure/RELEASE</tt> file and set the paths to
 your installation of EPICS base and to your versions of other
@@ -119,7 +123,6 @@ files. Bring up the medm display, <code>scan_saveData.adl</code> and fill in the
     Suggestions and Comments to: <br>
     <a href="mailto:mooney@aps.anl.gov">Tim Mooney </a>:
     (mooney@aps.anl.gov) <br>
-    Last modified: Jan 30, 2008 
 </address>
 </body>
 </html>

@@ -142,14 +142,24 @@
  *                    obvious to users, and it would not cause scans to hang.
  *                    Now, basename-related failures disable the use of basename,
  *                    but saveData still functions.
+ *     11-14-08  tmm  Instead of including nfsDrv.h (which is renamed in tornado 2.2, define
+ *                    nfsMount, nfsUnmount by hand.
+ *     03-26-09  tmm  Chid check before ca_array_get was wrong.  Added more chid checks.
+ *     04-04-09  tmm  v1.32 If file exists, use <base>_nnnn_mm.mda instead of <base>_nnnn.mda_mm
+ *     06-04-09  dmk  Moved the strncpy() calls in saveData_Init() to inside the
+ *                    brackets as to not overwrite the existing values if the
+ *                    method is called multiple times.
+
  */
 
 #define FILE_FORMAT_VERSION (float)1.3
-#define SAVE_DATA_VERSION   "1.31.0"
+#define SAVE_DATA_VERSION   "1.32.0"
 
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdarg.h>
+/* #include <osiUnistd.h> 3.14.11 */
+#include <unistd.h>
 
 #ifdef vxWorks
 #include <usrLib.h>
@@ -186,7 +196,7 @@ extern STATUS nfsUnmount(char *localName);
 
 #define DESC_SIZE 30
 #define EGU_SIZE 16
-#define PREFIX_SIZE 10
+#define PREFIX_SIZE PVNAME_STRINGSZ/2
 #define BASENAME_SIZE 20
 
 #include "req_file.h"
@@ -215,6 +225,9 @@ volatile int saveData_MessagePolicy = 0;
 #define Debug1(d,s,p) ;
 #define Debug2(d,s,p1,p2) ;
 #define Debug3(d,s,p1,p2,p3) ;
+#define Debug4(d,s,p1,p2,p3,p4) ;
+#define Debug5(d,s,p1,p2,p3,p4,p5) ;
+#define Debug6(d,s,p1,p2,p3,p4,p5,p6) ;
 #define DebugMsg0(d,s) ;
 #define DebugMsg1(d,s,p) ;
 #define DebugMsg2(d,s,p1,p2) ;
@@ -224,6 +237,9 @@ volatile int saveData_MessagePolicy = 0;
 #define Debug1(d,s,p)     {if (d<=debug_saveData) {printf(s,p);}}
 #define Debug2(d,s,p1,p2) {if (d<=debug_saveData) {printf(s,p1,p2);}}
 #define Debug3(d,s,p1,p2,p3) {if (d<=debug_saveData) {printf(s,p1,p2,p3);}}
+#define Debug4(d,s,p1,p2,p3,p4) {if (d<=debug_saveData) {printf(s,p1,p2,p3,p4);}}
+#define Debug5(d,s,p1,p2,p3,p4,p5) {if (d<=debug_saveData) {printf(s,p1,p2,p3,p4,p5);}}
+#define Debug6(d,s,p1,p2,p3,p4,p5,p6) {if (d<=debug_saveData) {printf(s,p1,p2,p3,p4,p5,p6);}}
 #define DebugMsg0(d,s)       {if (d<=debug_saveDataMsg) {printf(s);}}
 #define DebugMsg1(d,s,p)     {if (d<=debug_saveDataMsg) {printf(s,p);}}
 #define DebugMsg2(d,s,p1,p2) {if (d<=debug_saveDataMsg) {printf(s,p1,p2);}}
@@ -597,9 +613,9 @@ typedef struct pv_node {
 LOCAL char  req_file[40];
 LOCAL char  req_macros[40];
 
-LOCAL char  server_pathname[80];
+LOCAL char  server_pathname[200];
 LOCAL char* server_subdir;
-LOCAL char  local_pathname[80];
+LOCAL char  local_pathname[200];
 LOCAL char* local_subdir;
 
 #define STATUS_INACTIVE         0
@@ -659,7 +675,7 @@ LOCAL int          nb_extraPV=0;
 
 LOCAL int connectScan(char* name, char* handShake, char* autoHandShake);
 LOCAL int disconnectScan(SCAN* pscan);
-LOCAL int monitorScan(SCAN* pscan);
+LOCAL int monitorScan(SCAN* pscan, int pass);
 LOCAL void monitorScans();
 LOCAL SCAN* searchScan(char* name);
 LOCAL int  scan_getDim(SCAN* pscan);
@@ -741,10 +757,10 @@ LOCAL void sendUserMessage(char* msg) {
 
 void saveData_Init(char* fname, char* macros)
 {
-	strncpy(req_file, fname, 39);
-	strncpy(req_macros, macros, 39);
-
 	if (msg_queue==NULL) {
+        strncpy(req_file, fname, 39);
+        strncpy(req_macros, macros, 39);
+
 		msg_queue = epicsMessageQueueCreate(MAX_MSG, MAX_SIZE);
 		if (msg_queue==NULL) {
 			Debug0(1, "Unable to create message queue\n");
@@ -764,6 +780,9 @@ void saveData_Init(char* fname, char* macros)
 			epicsThreadSuspendSelf();
 		}
 	}
+    else
+        printf("saveData already initialized\n");
+    
 	return;
 }
 
@@ -798,7 +817,7 @@ void saveData_Version()
 
 void saveData_CVS() 
 {
-	printf("saveData CVS: saveData.c,v 1.39 2008/11/14 18:04:22 mooney Exp\n");
+	printf("saveData CVS: $Id: saveData.c,v 1.46 2009-10-15 19:23:02 mooney Exp $\n");
 }
 
 void saveData_Info() {
@@ -1104,10 +1123,12 @@ LOCAL int disconnectScan(SCAN* pscan)
 	Debug1(1, "disconnectScan(%s)...\n", pscan->name);
 	if ((pscan == NULL) || (pscan->name[0] == 0)) return(-1);
 	if (pscan->chandShake) ca_clear_channel(pscan->chandShake);
-	Debug1(2, "Clear autoHandshake %s\n", ca_name(pscan->cautoHandShake));
-	shortData = 0;
-	ca_array_put(DBR_SHORT, 1, pscan->cautoHandShake, &shortData);
-	if (pscan->cautoHandShake) ca_clear_channel(pscan->cautoHandShake);
+	if (pscan->cautoHandShake) {
+		Debug1(2, "Clear autoHandshake %s\n", ca_name(pscan->cautoHandShake));
+		shortData = 0;
+		ca_array_put(DBR_SHORT, 1, pscan->cautoHandShake, &shortData);
+		ca_clear_channel(pscan->cautoHandShake);
+	}
 
 	/* Disconnect fields */
 	if (pscan->cdata) ca_clear_channel(pscan->cdata);
@@ -1167,7 +1188,7 @@ LOCAL int disconnectScan(SCAN* pscan)
 /* pscan: a pointer to the SCAN structure connected to the scan record. */
 /* return 0 if all monitors have been successfuly added.                */
 /*        -1 otherwise.                                                 */
-LOCAL int monitorScan(SCAN* pscan)
+LOCAL int monitorScan(SCAN* pscan, int pass)
 {
 	int i;
 
@@ -1175,63 +1196,77 @@ LOCAL int monitorScan(SCAN* pscan)
 	Debug1(1, "monitorScan(%s)...\n", pscan->name);
 	if (pscan->name[0] == 0) return(-1);
 
+	if (pass==0) {
+		if (ca_add_event(DBR_TIME_SHORT, pscan->cdata, 
+				dataMonitor, (void*)NULL, 0)!=ECA_NORMAL) {
+			Debug1(2, "Unable to monitor %s\n", ca_name(pscan->cdata));
+			return -1;
+		}
+		return 0;
+	}
+
+	if (pscan->cnpts == NULL) {
+		Debug1(2, "Unable to monitor %s npts field\n", pscan->name);
+		return -1;
+	}
 	if (ca_add_event(DBR_LONG, pscan->cnpts, 
 			nptsMonitor, (void*)NULL, 0)!=ECA_NORMAL) {
-		Debug1(2, "Unable to post monitor on %s\n", ca_name(pscan->cnpts));
+		Debug1(2, "Unable to monitor %s\n", ca_name(pscan->cnpts));
 		return -1;
 	}
 	
 	for (i=0; i<SCAN_NBP; i++) { 
 		if (pscan->cpxnv[i]!=NULL && pscan->cpxsm[i]!=NULL && pscan->crxnv[i]!=NULL) {
 			if (ca_add_event(DBR_SHORT, pscan->cpxnv[i], pxnvMonitor, 
-					(void*)i, 0)!=ECA_NORMAL) {
-				Debug1(2, "Unable to post monitor on %s\n", ca_name(pscan->cpxnv[i]));
+					(void*)(long)i, 0)!=ECA_NORMAL) {
+				Debug1(2, "Unable to monitor %s\n", ca_name(pscan->cpxnv[i]));
 				return -1;
 			}
 			if (ca_add_event(DBR_STRING, pscan->cpxsm[i], pxsmMonitor, 
 					(void*)pscan->pxsm[i], 0)!=ECA_NORMAL) {
-				Debug1(2, "Unable to post monitor on %s\n", ca_name(pscan->cpxsm[i]));
+				Debug1(2, "Unable to monitor %s\n", ca_name(pscan->cpxsm[i]));
 				return -1;
 			}
 			if (ca_add_event(DBR_SHORT, pscan->crxnv[i], rxnvMonitor, 
-					(void*)i, 0)!=ECA_NORMAL) {
-				Debug1(2, "Unable to post monitor on %s\n", ca_name(pscan->crxnv[i]));
+					(void*)(long)i, 0)!=ECA_NORMAL) {
+				Debug1(2, "Unable to monitor %s\n", ca_name(pscan->crxnv[i]));
 				return -1;
 			}
+		} else {
+			Debug2(2, "Unable to monitor %s positioner %d\n", pscan->name, i);
+			return -1;
 		}
 	}
 	
 	for (i=0; i<SCAN_NBD; i++) {
 		if (pscan->cdxnv[i]!=NULL) {
 			if (ca_add_event(DBR_SHORT, pscan->cdxnv[i], dxnvMonitor, 
-					(void*)i, 0)!=ECA_NORMAL) {
-				Debug1(2, "Unable to post monitor on %s\n", ca_name(pscan->cdxnv[i]));
+					(void*)(long)i, 0)!=ECA_NORMAL) {
+				Debug1(2, "Unable to monitor %s\n", ca_name(pscan->cdxnv[i]));
 				return -1;
 			}
+		} else {
+			Debug2(2, "Unable to monitor %s detector %d\n", pscan->name, i);
+			return -1;
 		}
 	}
 
 	for (i=0; i<SCAN_NBT; i++) {
 		if (pscan->ctxnv[i]!=NULL && pscan->ctxcd[i]!=NULL) {
 			if (ca_add_event(DBR_SHORT, pscan->ctxnv[i], txnvMonitor, 
-					(void*)i, 0)!=ECA_NORMAL) {
-				Debug1(2, "Unable to post monitor on %s\n", ca_name(pscan->ctxnv[i]));
+					(void*)(long)i, 0)!=ECA_NORMAL) {
+				Debug1(2, "Unable to monitor %s\n", ca_name(pscan->ctxnv[i]));
 				return -1;
 			}
 			if (ca_add_event(DBR_FLOAT, pscan->ctxcd[i], txcdMonitor, 
-					(void*)i, 0)!=ECA_NORMAL) {
-				Debug1(2, "Unable to post monitor on %s\n", ca_name(pscan->ctxcd[i]));
+					(void*)(long)i, 0)!=ECA_NORMAL) {
+				Debug1(2, "Unable to monitor %s\n", ca_name(pscan->ctxcd[i]));
 				return -1;
 			}
+		} else {
+			Debug2(2, "Unable to monitor %s trigger %d\n", pscan->name, i);
+			return -1;
 		}
-	}
-
-
-
-	if (ca_add_event(DBR_TIME_SHORT, pscan->cdata, 
-			dataMonitor, (void*)NULL, 0)!=ECA_NORMAL) {
-		Debug1(2, "Unable to post monitor on %s\n", ca_name(pscan->cdata));
-		return -1;
 	}
 
 	Debug1(1, "monitorScan(%s) OK\n", pscan->name);
@@ -1254,24 +1289,34 @@ LOCAL void updateScan(SCAN* pscan)
 			/* we're linked to another sscan record, and the link will cause that record to start a scan */
 			Debug2(2, "updateScan:%s: calling searchScan(%s)\n",
 				pscan->name, pscan->txpvRec[i]);
+			/*
+			 * Is the sscan record we're linked to in our list of sscan records to monitor?   If so,
+			 * we'll receive it's SCAN* pointer; else, we'll receive NULL. 
+			 */
 			pscan->nxt= searchScan(pscan->txpvRec[i]);
+			/* If we have a SCAN* pointer, stop looking for one. */
 			if (pscan->nxt) break;
 		}
 	}
 	if (!(pscan->nxt) && (realTime1D==0)) {
+		/*
+		 * We're not monitoring an inner scan, and we're not writing data point-by-point, so we don't
+		 * want to receive monitor events from this sscan record's .CPT field.
+		 */
 		if (pscan->cpt_monitored==TRUE) {
-			Debug2(2, "updateScan:%s: clear .CPT subscription (cpt_evid = 0x%x)\n", pscan->name, (int)pscan->cpt_evid);
+			Debug2(2, "updateScan:%s: clear .CPT subscription (cpt_evid = %p)\n", pscan->name, pscan->cpt_evid);
 			if (pscan->cpt_evid) ca_clear_subscription(pscan->cpt_evid);
 			pscan->cpt_monitored= FALSE;
 		}
 	} else {
+		/* Make sure we will receive .CPT monitors. */
 		if (pscan->cpt_monitored==FALSE) {
 			Debug1(2, "updateScan:%s: subscribe to .CPT\n", pscan->name);
 			if (ca_create_subscription(DBR_LONG, 1, pscan->ccpt, DBE_VALUE, cptMonitor, NULL, &pscan->cpt_evid) == ECA_NORMAL) {
-				Debug2(2, "updateScan:%s: cpt_evid=%x\n", pscan->name, (int)pscan->cpt_evid);
+				Debug2(2, "updateScan:%s: cpt_evid=%p\n", pscan->name, pscan->cpt_evid);
 				pscan->cpt_monitored=TRUE;
 			} else {
-				Debug1(2, "Unable to post monitor on %s\n", ca_name(pscan->ccpt));
+				Debug1(2, "Unable to monitor %s\n", ca_name(pscan->ccpt));
 			}
 		}
 	}
@@ -1296,10 +1341,23 @@ LOCAL void monitorScans()
 {
 	SCAN_NODE* pnode;
 
-	pnode= list_scan;
+	/*
+	 * Make two passes through list of sscan records.  On first pass, monitor
+	 * only DATA fields.  This ensures that all DATA fields will be in the same
+	 * event-queue segment, which in turn ensures that DATA events will be
+	 * ordered correctly in time, at least with respect to other DATA events,
+	 * regardless of when the event queue is read, and regardless of any
+	 * discarded events.  
+	 */
+	pnode = list_scan;
 	while (pnode) {
-		monitorScan(&pnode->scan);
-		pnode= pnode->nxt;
+		monitorScan(&pnode->scan, 0);
+		pnode = pnode->nxt;
+	}
+	pnode = list_scan;
+	while (pnode) {
+		monitorScan(&pnode->scan, 1);
+		pnode = pnode->nxt;
 	}
 	updateScans();
 }
@@ -1388,7 +1446,7 @@ LOCAL void infoScan(SCAN* pscan)
 		}
 	}
 	for (i=0; i<SCAN_NBP; i++)
-		if (pscan->cpxra[i]!=NULL) printf("%s.%s[%s]= %d\n", pscan->name, pxra[i], cs[ca_state(pscan->cpxra[i])], (int)pscan->pxra[i]);
+		if (pscan->cpxra[i]!=NULL) printf("%s.%s[%s]= %p\n", pscan->name, pxra[i], cs[ca_state(pscan->cpxra[i])], pscan->pxra[i]);
 	for (i=0; i<SCAN_NBP; i++)
 		if (pscan->crxcv[i]!=NULL) printf("%s.%s[%s]= %f\n", pscan->name, rxcv[i], cs[ca_state(pscan->crxcv[i])], pscan->rxcv[i]);
 
@@ -1426,7 +1484,11 @@ LOCAL void dataMonitor(struct event_handler_args eha)
 	SCAN* pscan;
 	short newData, sval;
 	char  disp;
+	/* diagnostics */
+	epicsTimeStamp currtime;
+	char currtimestr[MAX_STRING_SIZE]; 
 
+	epicsTimeGetCurrent(&currtime);
 	pscan= (SCAN*)ca_puser(eha.chid);
 
 if (pscan->nxt) {
@@ -1435,7 +1497,8 @@ if (pscan->nxt) {
 }
 	pval = (struct dbr_time_short *) eha.dbr;
 	sval = pval->value;
-	/*printf("dataMonitor(%s): (DATA=%d)\n", pscan->name, sval);*/
+	Debug2(5,"dataMonitor(%s): (DATA=%d)\n", pscan->name, sval);
+
 	if (pscan->data != -1) {
 		if (sval == 1) {
 			/* hand shaking notify */
@@ -1448,21 +1511,21 @@ if (pscan->nxt) {
 		if ((sval==0) && (nb_scan_running++ == 0)) {
 			/* new scan started: disable put to filesystem and subdir */
 			disp = (char)1;
-			ca_array_put(DBR_CHAR, 1, file_system_disp_chid, &disp);
+			if (file_system_disp_chid) ca_array_put(DBR_CHAR, 1, file_system_disp_chid, &disp);
 			disp = (char)1;
-			ca_array_put(DBR_CHAR, 1, file_subdir_disp_chid, &disp);
-			if (file_basename_disp_chid) {
-				disp = (char)1;
-				ca_array_put(DBR_CHAR, 1, file_basename_disp_chid, &disp);
-			}
+			if (file_subdir_disp_chid) ca_array_put(DBR_CHAR, 1, file_subdir_disp_chid, &disp);
+			disp = (char)1;
+			if (file_basename_disp_chid) ca_array_put(DBR_CHAR, 1, file_basename_disp_chid, &disp);
 			disp = (char)0;
-			ca_array_put(DBR_STRING, 1, message_chid, &disp);
+			if (message_chid) ca_array_put(DBR_STRING, 1, message_chid, &disp);
 		}
 		Debug1(2,"\n nb_scan_running=%d\n", nb_scan_running);
 	}
-
 	epicsTimeToStrftime(pscan->stamp, MAX_STRING_SIZE, "%b %d, %Y %H:%M:%S.%06f", &pval->stamp);
 	sendScanTSShortMsgWait(MSG_SCAN_DATA, (SCAN*)ca_puser(eha.chid), pval->stamp, pval->value);
+	epicsTimeToStrftime(currtimestr, MAX_STRING_SIZE, "%b %d, %Y %H:%M:%S.%06f", &currtime);
+	Debug6(1,"dataMonitor(%s)tid=%p(%s): (DATA=%d) eha time:%s, currtime=%s\n", pscan->name,
+		epicsThreadGetIdSelf(), epicsThreadGetNameSelf(), sval, pscan->stamp, currtimestr);
 }
 
 /*----------------------------------------------------------------------*/
@@ -1470,7 +1533,7 @@ if (pscan->nxt) {
 /*                                                                      */
 LOCAL void nptsMonitor(struct event_handler_args eha)
 {
-	sendScanLongMsgWait(MSG_SCAN_NPTS, (SCAN *) ca_puser(eha.chid), *((long *) eha.dbr));
+	sendScanLongMsgWait(MSG_SCAN_NPTS, (SCAN *) ca_puser(eha.chid), *((dbr_long_t *) eha.dbr));
 }
 
 /*----------------------------------------------------------------------*/
@@ -1484,17 +1547,17 @@ LOCAL void cptMonitor(struct event_handler_args eha)
 	Debug0(2,"cptMonitor:entry\n");
 	switch(saveData_MessagePolicy) {
 	case 0:
-		sendScanLongMsgWait(MSG_SCAN_CPT, (SCAN *) ca_puser(eha.chid), *((long *) eha.dbr));
+		sendScanLongMsgWait(MSG_SCAN_CPT, (SCAN *) ca_puser(eha.chid), *((dbr_long_t *) eha.dbr));
 		break;
 	case 1:
-		sendScanLongMsg(MSG_SCAN_CPT, (SCAN *) ca_puser(eha.chid), *((long *) eha.dbr));
+		sendScanLongMsg(MSG_SCAN_CPT, (SCAN *) ca_puser(eha.chid), *((dbr_long_t *) eha.dbr));
 		break;
 	case 2:
 		pscan = (SCAN *) ca_puser(eha.chid);
 		(void)epicsTimeGetCurrent(&currentTime);
 		if (epicsTimeDiffInSeconds(&currentTime, &(pscan->cpt_time)) >= cpt_wait_time) {
 			pscan->cpt_time = currentTime;
-			sendScanLongMsg(MSG_SCAN_CPT, (SCAN *) ca_puser(eha.chid), *((long *) eha.dbr));
+			sendScanLongMsg(MSG_SCAN_CPT, (SCAN *) ca_puser(eha.chid), *((dbr_long_t *) eha.dbr));
 		}
 		break;
 	case 3:
@@ -1502,7 +1565,7 @@ LOCAL void cptMonitor(struct event_handler_args eha)
 		(void)epicsTimeGetCurrent(&currentTime);
 		if (epicsTimeDiffInSeconds(&currentTime, &(pscan->cpt_time)) >= cpt_wait_time) {
 			pscan->cpt_time = currentTime;
-			sendScanLongMsgWait(MSG_SCAN_CPT, (SCAN *) ca_puser(eha.chid), *((long *) eha.dbr));
+			sendScanLongMsgWait(MSG_SCAN_CPT, (SCAN *) ca_puser(eha.chid), *((dbr_long_t *) eha.dbr));
 		}
 		break;
 	}
@@ -1513,7 +1576,7 @@ LOCAL void cptMonitor(struct event_handler_args eha)
 /*                                                                      */
 LOCAL void pxnvMonitor(struct event_handler_args eha)
 {
-	sendScanIndexMsgWait(MSG_SCAN_PXNV, (SCAN *) ca_puser(eha.chid), (int) eha.usr, *((short *) eha.dbr));
+	sendScanIndexMsgWait(MSG_SCAN_PXNV, (SCAN *) ca_puser(eha.chid), (long) eha.usr, *((dbr_short_t *) eha.dbr));
 }
 
 /*----------------------------------------------------------------------*/
@@ -1521,7 +1584,7 @@ LOCAL void pxnvMonitor(struct event_handler_args eha)
 /*                                                                      */
 LOCAL void pxsmMonitor(struct event_handler_args eha)
 {
-	sendStringMsgWait(MSG_SCAN_PXSM, eha.usr, eha.dbr);
+	sendStringMsgWait(MSG_SCAN_PXSM, (char *)eha.usr, eha.dbr);
 }
 
 /*----------------------------------------------------------------------*/
@@ -1529,7 +1592,7 @@ LOCAL void pxsmMonitor(struct event_handler_args eha)
 /*                                                                      */
 LOCAL void rxnvMonitor(struct event_handler_args eha)
 {
-	sendScanIndexMsgWait(MSG_SCAN_RXNV, (SCAN *) ca_puser(eha.chid), (int) eha.usr, *((short *) eha.dbr));
+	sendScanIndexMsgWait(MSG_SCAN_RXNV, (SCAN *) ca_puser(eha.chid), (long) eha.usr, *((dbr_short_t *) eha.dbr));
 }
 
 /*----------------------------------------------------------------------*/
@@ -1537,7 +1600,7 @@ LOCAL void rxnvMonitor(struct event_handler_args eha)
 /*                                                                      */
 LOCAL void dxnvMonitor(struct event_handler_args eha)
 {
-	sendScanIndexMsgWait(MSG_SCAN_DXNV, (SCAN *) ca_puser(eha.chid), (int) eha.usr, *((short *) eha.dbr));
+	sendScanIndexMsgWait(MSG_SCAN_DXNV, (SCAN *) ca_puser(eha.chid), (long) eha.usr, *((dbr_short_t *) eha.dbr));
 }
 
 
@@ -1546,7 +1609,7 @@ LOCAL void dxnvMonitor(struct event_handler_args eha)
 /*                                                                      */
 LOCAL void txnvMonitor(struct event_handler_args eha)
 {
-	sendScanIndexMsgWait(MSG_SCAN_TXNV, (SCAN *) ca_puser(eha.chid), (int) eha.usr, *((short *) eha.dbr));
+	sendScanIndexMsgWait(MSG_SCAN_TXNV, (SCAN *) ca_puser(eha.chid), (long) eha.usr, *((dbr_short_t *) eha.dbr));
 }
 
 /*----------------------------------------------------------------------*/
@@ -1554,7 +1617,7 @@ LOCAL void txnvMonitor(struct event_handler_args eha)
 /*                                                                      */
 LOCAL void txcdMonitor(struct event_handler_args eha)
 {
-	sendScanIndexMsgWait(MSG_SCAN_TXCD, (SCAN *) ca_puser(eha.chid), (int) eha.usr, *((float *) eha.dbr));
+	sendScanIndexMsgWait(MSG_SCAN_TXCD, (SCAN *) ca_puser(eha.chid), (long) eha.usr, *((dbr_float_t *) eha.dbr));
 }
 
 /*----------------------------------------------------------------------*/
@@ -1562,7 +1625,7 @@ LOCAL void txcdMonitor(struct event_handler_args eha)
 /*                                                                      */
 LOCAL void descMonitor(struct event_handler_args eha)
 {
-	sendStringMsgWait(MSG_DESC, eha.usr, eha.dbr);
+	sendStringMsgWait(MSG_DESC, (char *)eha.usr, eha.dbr);
 }
 
 
@@ -1583,7 +1646,7 @@ LOCAL void fileBasenameMonitor(struct event_handler_args eha)
 
 LOCAL void realTime1DMonitor(struct event_handler_args eha)
 {
-	sendIntegerMsgWait(MSG_REALTIME1D, *((int *) eha.dbr));
+	sendIntegerMsgWait(MSG_REALTIME1D, *((dbr_long_t *) eha.dbr));
 }
 
 
@@ -1689,7 +1752,7 @@ LOCAL void maxAllowedRetriesMonitor(struct event_handler_args eha)
 	if (eha.status != ECA_NORMAL) {
 		printf("maxAllowedRetriesMonitor: bad status\n");
 	} else {
-		i = *((long *) eha.dbr);
+		i = *((dbr_long_t *) eha.dbr);
 		if (i >= 0) maxAllowedRetries = i;
 		printf("saveData:maxAllowedRetries = %ld\n", maxAllowedRetries);
 	}
@@ -1701,7 +1764,7 @@ LOCAL void retryWaitInSecsMonitor(struct event_handler_args eha)
 	if (eha.status != ECA_NORMAL) {
 		printf("maxAllowedRetriesMonitor: bad status\n");
 	} else {
-		i = *((long *) eha.dbr);
+		i = *((dbr_long_t *) eha.dbr);
 		if (i >= 0) retryWaitInSecs = i;
 	}
 	printf("saveData:retryWaitInSecs = %ld\n", retryWaitInSecs);
@@ -1729,14 +1792,14 @@ LOCAL int connectRetryPVs(char *prefix)
 	if (ca_pend_io(0.5)!=ECA_NORMAL) {
 		printf("saveData: Can't connect to some or all retry PVs\n");
 	}
-	if (maxAllowedRetries_chid && ca_add_event(DBR_LONG, maxAllowedRetries_chid, 
-			maxAllowedRetriesMonitor, NULL, NULL)!=ECA_NORMAL) {
+	if (maxAllowedRetries_chid && (ca_add_event(DBR_LONG, maxAllowedRetries_chid, 
+			maxAllowedRetriesMonitor, NULL, NULL)!=ECA_NORMAL)) {
 		printf("saveData: Can't monitor %ssaveData_maxAllowedRetries.  Using default of %ld\n",
 			prefix, maxAllowedRetries);
 		if (maxAllowedRetries_chid) ca_clear_channel(maxAllowedRetries_chid);
 	}
-	if (retryWaitInSecs_chid && ca_add_event(DBR_LONG, retryWaitInSecs_chid, 
-			retryWaitInSecsMonitor, NULL, NULL)!=ECA_NORMAL) {
+	if (retryWaitInSecs_chid && (ca_add_event(DBR_LONG, retryWaitInSecs_chid, 
+			retryWaitInSecsMonitor, NULL, NULL)!=ECA_NORMAL)) {
 		printf("saveData: Can't monitor %ssaveData_retryWaitInSecs.  Using default of %ld\n",
 			prefix, retryWaitInSecs);
 		if (retryWaitInSecs_chid) ca_clear_channel(retryWaitInSecs_chid);
@@ -1777,7 +1840,7 @@ LOCAL void extraValCallback(struct event_handler_args eha)
 		size= dbr_size[DBR_CTRL_DOUBLE]+(count-1)*sizeof(double);
 		break;
 	default:
-		printf("saveDta: unsuported dbr_type %d\n", (int)type);
+		printf("saveDta: unsupported dbr_type %d\n", (int)type);
 		epicsMutexUnlock(pnode->lock);
 		return;
 	}
@@ -1801,7 +1864,7 @@ LOCAL void extraDescCallback(struct event_handler_args eha)
 	epicsMutexLock(pnode->lock);
 
 	strcpy(pnode->desc, (char *)pval);
-	ca_clear_channel(pnode->desc_chid);
+	if (pnode->desc_chid) ca_clear_channel(pnode->desc_chid);
 
 	epicsMutexUnlock(pnode->lock);
 }
@@ -1832,7 +1895,7 @@ LOCAL int connectPV(char* pv, char* desc)
 	if (ca_pend_io(10)!=ECA_NORMAL) {
 		/* Unable to connect in 10 seconds. Discard the pv ! */
 		printf("saveData: Unable to connect to %s\n", pv);
-		ca_clear_channel(pnode->channel);
+		if (pnode->channel) ca_clear_channel(pnode->channel);
 		free(pnode);
 		return -1;
 	}
@@ -1876,7 +1939,7 @@ LOCAL int connectPV(char* pv, char* desc)
 		size= dbr_size[DBR_CTRL_DOUBLE]+ (count-1) * sizeof(double);
 		break;
 	default:
-		printf("saveData: %s has an unsuported type\n", pv);
+		printf("saveData: %s has an unsupported type\n", pv);
 		ca_clear_channel(pnode->channel);
 		free(pnode);
 		return -1;
@@ -1902,7 +1965,7 @@ LOCAL int connectPV(char* pv, char* desc)
 		pnode->desc[0]='\0';
 		if (ca_pend_io(10)!=ECA_NORMAL) {
 			printf("saveData: Unable to connect to %s\n", buff);
-			ca_clear_channel(pnode->desc_chid);
+			if (pnode->desc_chid) ca_clear_channel(pnode->desc_chid);
 		} else {
 			ca_array_get_callback(DBR_STRING, 1, pnode->desc_chid, 
 				extraDescCallback, (void*)pnode);
@@ -2138,7 +2201,7 @@ LOCAL void getExtraPV()
 	pcur= list_pv;
 	while (pcur) {
 		channel= pcur->channel;
-		ca_array_get_callback(pcur->dbr_type, ca_element_count(channel),
+		if (channel) ca_array_get_callback(pcur->dbr_type, ca_element_count(channel),
 			channel, extraValCallback, (void*)pcur);
 		pcur= pcur->nxt;
 	}
@@ -2192,27 +2255,27 @@ LOCAL int saveExtraPV(XDR* pxdrs)
 				cptr= pval->cchrval.units;
 				writeFailed |= !xdr_counted_string(pxdrs, &cptr);
 				/* xdr_bytes(pxdrs,(char**)&pval->cchrval.value,&count, count); */
-				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->cchrval.value,count,sizeof(char),xdr_char);
+				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->cchrval.value,count,sizeof(char),(xdrproc_t)xdr_char);
 				break;
 			case DBR_CTRL_SHORT:
 				cptr= pval->cshrtval.units;
 				writeFailed |= !xdr_counted_string(pxdrs, &cptr);
-				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->cshrtval.value,count,sizeof(short),xdr_short);
+				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->cshrtval.value,count,sizeof(short),(xdrproc_t)xdr_short);
 				break;
 			case DBR_CTRL_LONG:
 				cptr= pval->clngval.units;
 				writeFailed |= !xdr_counted_string(pxdrs, &cptr);
-				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->clngval.value,count, sizeof(long),xdr_long);
+				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->clngval.value,count, sizeof(long),(xdrproc_t)xdr_long);
 				break;
 			case DBR_CTRL_FLOAT:
 				cptr= pval->cfltval.units;
 				writeFailed |= !xdr_counted_string(pxdrs, &cptr);
-				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->cfltval.value,count, sizeof(float),xdr_float);
+				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->cfltval.value,count, sizeof(float),(xdrproc_t)xdr_float);
 				break;
 			case DBR_CTRL_DOUBLE:
 				cptr= pval->cdblval.units;
 				writeFailed |= !xdr_counted_string(pxdrs, &cptr);
-				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->cdblval.value,count, sizeof(double),xdr_double);
+				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->cdblval.value,count, sizeof(double),(xdrproc_t)xdr_double);
 				break;
 			}
 
@@ -2319,6 +2382,8 @@ LOCAL int writeScanRecInProgress(SCAN *pscan, epicsTimeStamp stamp, int isRetry)
 
 	/* the offset of this scan                                          */
 	scan_offset = xdr_getpos(&xdrs);
+	Debug2(2, "saveData:writeScanRecInProgress:(%s) scan_offset=%ld\n",
+			pscan->name, scan_offset);
 	if (scan_offset == (u_int)(-1)) {writeFailed = TRUE; goto cleanup;}
 
 	/*------------------------------------------------------------------*/
@@ -2478,7 +2543,7 @@ LOCAL int writeScanRecInProgress(SCAN *pscan, epicsTimeStamp stamp, int isRetry)
 		ca_array_put(DBR_SHORT, 1, save_status_chid, &save_status);
 	}
 	if (isRetry) {
-		printf("saveData:writeScanRecCompleted(%s): retry succeeded\n", pscan->name);
+		printf("saveData:writeScanRecInProgress(%s): retry succeeded\n", pscan->name);
 		sprintf(msg, "Retry succeeded for %s", pscan->fname);
 		msg[MAX_STRING_SIZE-1]= '\0';
 		sendUserMessage(msg);
@@ -2510,7 +2575,8 @@ LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 		msg[MAX_STRING_SIZE-1]= '\0';
 		sendUserMessage(msg);
 		save_status = STATUS_ERROR;
-		ca_array_put(DBR_SHORT, 1, save_status_chid, &save_status);    if (fd) fclose(fd);
+		if (save_status_chid) ca_array_put(DBR_SHORT, 1, save_status_chid, &save_status);
+	    if (fd) fclose(fd);
 		return(-1);
 	}
 
@@ -2527,9 +2593,15 @@ LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 	if (pscan->nb_pos) {
 		for (i=0; i<SCAN_NBP; i++) {
 			if ((pscan->pxnv[i]==XXNV_OK) || (pscan->rxnv[i]==XXNV_OK)) {
-				status = ca_array_get(DBR_DOUBLE, pscan->bcpt, pscan->cpxra[i], pscan->pxra[i]);
-				if (status != ECA_NORMAL) {
-					printf("saveData:writeScanRecCompleted: ca_array_get_callback returned %d\n", status);
+				if (pscan->cpxra[i] == NULL) {
+					printf("saveData:writeScanRecCompleted: Can't get %s positioner array %d\n", pscan->name, i);
+				} else {
+					status = ca_array_get(DBR_DOUBLE, pscan->bcpt, pscan->cpxra[i], pscan->pxra[i]);
+					if (status != ECA_NORMAL) {
+						printf("saveData:writeScanRecCompleted: ca_array_get() (%ld pts) returned %d for scan %s, p%d\n",
+							pscan->bcpt, status, pscan->name, i);
+						printf("...%d means '%s'\n", status, ca_message(status));
+					}
 				}
 				if (pscan->bcpt < pscan->npts) { /* zero unacquired data points */
 					for (j=pscan->bcpt; j<pscan->npts; j++) pscan->pxra[i][j] = 0.0;
@@ -2541,7 +2613,11 @@ LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 		for (i=0; i<SCAN_NBD; i++) {
 #if ALLOC_ALL_DETS
 			if (pscan->dxnv[i]==XXNV_OK) {
-				ca_array_get(DBR_FLOAT, pscan->bcpt, pscan->cdxda[i], pscan->dxda[i]);
+				if (pscan->cdxda[i] == NULL) {
+					printf("saveData:writeScanRecCompleted: Can't get %s detector array %d\n", pscan->name, i);
+				} else {
+					ca_array_get(DBR_FLOAT, pscan->bcpt, pscan->cdxda[i], pscan->dxda[i]);
+				}
 			}
 #else
 			if (pscan->dxnv[i]==XXNV_OK) {
@@ -2557,8 +2633,16 @@ LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 					sendUserMessage(msg);
 				}
 				if (pscan->dxda[i]) {
-					status = ca_array_get(DBR_FLOAT, pscan->bcpt, pscan->cdxda[i], pscan->dxda[i]);
-					if (status != ECA_NORMAL) printf("saveData:writeScanRecCompleted: ca_array_get returned error for det %d \n", i);
+					if (pscan->cdxda[i] == NULL) {
+						printf("saveData:writeScanRecCompleted: Can't get %s detector array %d\n", pscan->name, i);
+					} else {
+						status = ca_array_get(DBR_FLOAT, pscan->bcpt, pscan->cdxda[i], pscan->dxda[i]);
+						if (status != ECA_NORMAL) {
+							printf("saveData:writeScanRecCompleted: ca_array_get() (%ld pts) returned %d for scan %s, d%d\n",
+								pscan->bcpt, status, pscan->name, i);
+							printf("...%d means '%s'\n", status, ca_message(status));
+						}
+					}
 				}
 			}
 #endif
@@ -2582,7 +2666,7 @@ LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 				writeFailed |= !xdr_setpos(&xdrs, pscan->pxra_fpos[i]);
 				if (writeFailed) goto cleanup;
 				writeFailed |= !xdr_vector(&xdrs, (char*)pscan->pxra[i], pscan->npts, 
-					sizeof(double), xdr_double);
+					sizeof(double), (xdrproc_t)xdr_double);
 			}
 		}
 	}
@@ -2593,7 +2677,7 @@ LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 				writeFailed |= !xdr_setpos(&xdrs, pscan->dxda_fpos[i]);
 				if (writeFailed) goto cleanup;
 				writeFailed |= !xdr_vector(&xdrs, (char*)pscan->dxda[i], pscan->npts,
-					sizeof(float), xdr_float);
+					sizeof(float), (xdrproc_t)xdr_float);
 			}
 		}
 	}
@@ -2618,7 +2702,7 @@ LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 			 * Extra PV's get tacked on at the end of the file.  Remember where that is,
 			 * in case we run into trouble and have to retry.
 			 */
-			if (fseek(fd, 0, SEEK_END)==EOF) {fclose(fd); return(-1);;}
+			if (fseek(fd, 0, SEEK_END)==EOF) {fclose(fd); return(-1);}
 			pscan->savedSeekPos = ftell(fd);
 			if (pscan->savedSeekPos == EOF) {pscan->savedSeekPos = 0; fclose(fd); return(-1);}
 		}
@@ -2658,7 +2742,6 @@ cleanup:
 LOCAL void proc_scan_data(SCAN_TS_SHORT_MSG* pmsg)
 {
 	char  msg[200];
-	char  *cptr;
 	SCAN  *pscan, *pnxt;
 	int   i, status;
 
@@ -2685,13 +2768,11 @@ LOCAL void proc_scan_data(SCAN_TS_SHORT_MSG* pmsg)
 			/* Scan is over.  If all scans in this group are over, enable file system record */
 			if (--nb_scan_running==0) {
 				cval=(char)0;
-				ca_array_put(DBR_CHAR, 1, file_system_disp_chid, &cval);
+				if (file_system_disp_chid) ca_array_put(DBR_CHAR, 1, file_system_disp_chid, &cval);
 				cval=(char)0;
-				ca_array_put(DBR_CHAR, 1, file_subdir_disp_chid, &cval);
-				if (file_basename_disp_chid) {
-					cval=(char)0;
-					ca_array_put(DBR_CHAR, 1, file_basename_disp_chid, &cval);
-				}
+				if (file_subdir_disp_chid) ca_array_put(DBR_CHAR, 1, file_subdir_disp_chid, &cval);
+				cval=(char)0;
+				if (file_basename_disp_chid) ca_array_put(DBR_CHAR, 1, file_basename_disp_chid, &cval);
 			}
 			Debug1(2,"(save_status inactive) nb_scan_running=%d\n", nb_scan_running);
 			if (nb_scan_running < 0) {
@@ -2722,7 +2803,6 @@ LOCAL void proc_scan_data(SCAN_TS_SHORT_MSG* pmsg)
 				if (pscan->cpxeu[i]) ca_array_get(DBR_CTRL_DOUBLE, 1, pscan->cpxeu[i], &pscan->pxeu[i]);
 				/* request ctrl info for the readback (unit) */
 				if (pscan->crxeu[i]) ca_array_get(DBR_CTRL_DOUBLE, 1, pscan->crxeu[i], &pscan->rxeu[i]);
-				/* compute the number of valid pos/rdb in the scan */
 			}
 		}
 		Debug0(3, "Checking number of valid detector\n");
@@ -2731,8 +2811,7 @@ LOCAL void proc_scan_data(SCAN_TS_SHORT_MSG* pmsg)
 			if (pscan->dxnv[i]==XXNV_OK) {
 				pscan->nb_det++;
 				/* request ctrl info for the detector (unit) */
-				if (pscan->cdxeu) ca_array_get(DBR_CTRL_FLOAT, 1, pscan->cdxeu[i], &pscan->dxeu[i]);
-				/* compute the number of valid det in the scan */
+				if (pscan->cdxeu[i]) ca_array_get(DBR_CTRL_FLOAT, 1, pscan->cdxeu[i], &pscan->dxeu[i]);
 			}
 		}
 		pscan->nb_trg=0;
@@ -2756,12 +2835,16 @@ LOCAL void proc_scan_data(SCAN_TS_SHORT_MSG* pmsg)
 			Debug0(3, "Outermost scan\n");
 			Debug1(5, "proc_scan_data(%s):New file\n", pscan->name);
 			/* Get number for this scan */
-			ca_array_get(DBR_LONG, 1, counter_chid, &counter);
-			if (ca_pend_io(0.5)!=ECA_NORMAL) {
-				/* error !!! */
+			if (counter_chid == NULL) {
 				printf("saveData: unable to get scan number !!!\n");
 			} else {
-				pscan->counter = counter;
+				ca_array_get(DBR_LONG, 1, counter_chid, &counter);
+				if (ca_pend_io(0.5)!=ECA_NORMAL) {
+					/* error !!! */
+					printf("saveData: unable to get scan number !!!\n");
+				} else {
+					pscan->counter = counter;
+				}
 			}
 			/* Make file name */
 			if (scanFile_basename[0] == '\0') {
@@ -2773,13 +2856,20 @@ LOCAL void proc_scan_data(SCAN_TS_SHORT_MSG* pmsg)
 #else
 			sprintf(pscan->ffname, "%s%s", server_pathname, pscan->fname);
 #endif
-			cptr= &pscan->ffname[strlen(pscan->ffname)];
+
+			/* If pscan->ffname already exists, insert '_nn' into file name and try again */
 			duplicate_scan_number = 0;
-			while ((fileStatus(pscan->ffname)==OK) && (duplicate_scan_number < 99)) {
-				sprintf(cptr, "_%.2d", ++duplicate_scan_number);
+			while ((fileStatus(pscan->ffname) == 0) && (duplicate_scan_number < 99)) {
+#ifdef vxWorks
+				sprintf(pscan->ffname, "%s%s%.4d_%.2d.mda", local_pathname, scanFile_basename, (int)pscan->counter, ++duplicate_scan_number);
+#else
+				sprintf(pscan->ffname, "%s%s%.4d_%.2d.mda", server_pathname, scanFile_basename, (int)pscan->counter, ++duplicate_scan_number);
+#endif
 			}
 			if (duplicate_scan_number) {
-				sprintf(&pscan->fname[strlen(pscan->fname)], "_%.2d", duplicate_scan_number);
+				/* sprintf(&pscan->fname[strlen(pscan->fname)], "_%.2d", duplicate_scan_number); */
+				sprintf(pscan->fname, "%s%.4d_%.2d.mda", scanFile_basename, (int)pscan->counter, duplicate_scan_number);
+
 			}
 
 			/* Tell user what we're doing */
@@ -2900,13 +2990,11 @@ LOCAL void proc_scan_data(SCAN_TS_SHORT_MSG* pmsg)
 		/* enable file system record                                        */
 		if (--nb_scan_running==0) {
 			cval=(char)0;
-			ca_array_put(DBR_CHAR, 1, file_system_disp_chid, &cval);
+			if (file_system_disp_chid) ca_array_put(DBR_CHAR, 1, file_system_disp_chid, &cval);
 			cval=(char)0;
-			ca_array_put(DBR_CHAR, 1, file_subdir_disp_chid, &cval);
-			if (file_basename_disp_chid) {
-				cval=(char)0;
-				ca_array_put(DBR_CHAR, 1, file_basename_disp_chid, &cval);
-			}
+			if (file_subdir_disp_chid) ca_array_put(DBR_CHAR, 1, file_subdir_disp_chid, &cval);
+			cval=(char)0;
+			if (file_basename_disp_chid) ca_array_put(DBR_CHAR, 1, file_basename_disp_chid, &cval);
 		}
 		Debug1(2,"(save_status active) nb_scan_running=%d\n", nb_scan_running);
 
@@ -2956,12 +3044,14 @@ LOCAL void proc_scan_cpt(SCAN_LONG_MSG* pmsg)
 	Debug3(2, "saveData:proc_scan_cpt: saving %s[%ld] to %s\n", pscan->name, pscan->cpt-1, pscan->fname);
 		
 	for (i=0; i<SCAN_NBP; i++) {
-		if ((pscan->rxnv[i]==XXNV_OK) || (pscan->pxnv[i]==XXNV_OK))
-			ca_array_get(DBR_DOUBLE, 1, pscan->crxcv[i], &pscan->rxcv[i]);
+		if ((pscan->rxnv[i]==XXNV_OK) || (pscan->pxnv[i]==XXNV_OK)) {
+			if (pscan->crxcv[i]) ca_array_get(DBR_DOUBLE, 1, pscan->crxcv[i], &pscan->rxcv[i]);
+		}
 	}
 	for (i=0; i<SCAN_NBD; i++) {
-		if (pscan->dxnv[i]==XXNV_OK)
-			ca_array_get(DBR_FLOAT, 1, pscan->cdxcv[i], &pscan->dxcv[i]);
+		if (pscan->dxnv[i]==XXNV_OK) {
+			if (pscan->cdxcv[i]) ca_array_get(DBR_FLOAT, 1, pscan->cdxcv[i], &pscan->dxcv[i]);
+		}
 	}
 	if (ca_pend_io(0.5)!=ECA_NORMAL) {
 		/* error !!! */
@@ -2977,7 +3067,7 @@ LOCAL void proc_scan_cpt(SCAN_LONG_MSG* pmsg)
 			msg[MAX_STRING_SIZE-1] = '\0';
 			sendUserMessage(msg);
 			save_status = STATUS_ERROR;
-			ca_array_put(DBR_SHORT, 1, save_status_chid, &save_status);
+			if (save_status_chid) ca_array_put(DBR_SHORT, 1, save_status_chid, &save_status);
 			return;
 	}
 
@@ -3017,7 +3107,7 @@ LOCAL void proc_scan_cpt(SCAN_LONG_MSG* pmsg)
 			msg[MAX_STRING_SIZE-1] = '\0';
 			sendUserMessage(msg);
 			save_status = STATUS_ACTIVE_OK;
-			ca_array_put(DBR_SHORT, 1, save_status_chid, &save_status);
+			if (save_status_chid) ca_array_put(DBR_SHORT, 1, save_status_chid, &save_status);
 	}
 
 cleanup:
@@ -3035,7 +3125,7 @@ LOCAL void proc_scan_pxnv(SCAN_INDEX_MSG* pmsg)
 	int   i;
 	short val;
 	char  buff[PVNAME_STRINGSZ];
-	int   len;
+	int   len, got_it;
 	epicsTimeStamp now;
 
 	pscan= pmsg->pscan;
@@ -3060,8 +3150,12 @@ LOCAL void proc_scan_pxnv(SCAN_INDEX_MSG* pmsg)
 
 	if (val==XXNV_OK) {
 		/* the pvname is valid, get it.                                     */
-		ca_array_get(DBR_STRING, 1, pscan->cpxpv[i], pscan->pxpv[i]);
-		if (ca_pend_io(2.0)!=ECA_NORMAL) {
+		got_it = 0;
+		if (pscan->cpxpv[i]) {
+			ca_array_get(DBR_STRING, 1, pscan->cpxpv[i], pscan->pxpv[i]);
+			if (ca_pend_io(2.0)==ECA_NORMAL) got_it = 1;
+		}
+		if (!got_it) {
 			Debug2(2, "Unable to get %s.%s\n", pscan->name, pxpv[i]);
 			strcpy(pscan->pxpv[i], "ERROR");
 		} else {
@@ -3076,20 +3170,21 @@ LOCAL void proc_scan_pxnv(SCAN_INDEX_MSG* pmsg)
 				ca_clear_channel(pscan->cpxds[i]);
 				pscan->cpxds[i]=NULL;
 			} else {
-				ca_add_array_event(DBR_STRING, 1, pscan->cpxds[i], 
-					descMonitor, pscan->pxds[i],
-					(float)0,(float)0,(float)0, NULL);
+				if (pscan->cpxds[i]) ca_add_array_event(DBR_STRING, 1, pscan->cpxds[i], 
+					descMonitor, pscan->pxds[i], (float)0,(float)0,(float)0, NULL);
 			}
 
 			/* Try to connect the positioner */
 			ca_search(pscan->pxpv[i], &pscan->cpxeu[i]);
 			if (ca_pend_io(2.0)!=ECA_NORMAL) {
 				Debug1(2, "Unable to connect %s\n", pscan->pxpv[i]);
-				ca_clear_channel(pscan->cpxeu[i]);
+				if (pscan->cpxeu[i]) ca_clear_channel(pscan->cpxeu[i]);
 				pscan->cpxeu[i]=NULL;
 			} else {
-				ca_array_get(DBR_CTRL_DOUBLE, 1, pscan->cpxeu[i], &pscan->pxeu[i]);
-				ca_pend_io(2.0);
+				if (pscan->cpxeu[i]) {
+					ca_array_get(DBR_CTRL_DOUBLE, 1, pscan->cpxeu[i], &pscan->pxeu[i]);
+					ca_pend_io(2.0);
+				}
 			}
 		}
 	}
@@ -3116,7 +3211,7 @@ LOCAL void proc_scan_rxnv(SCAN_INDEX_MSG* pmsg)
 	int   i;
 	short val;
 	char  buff[PVNAME_STRINGSZ];
-	int   len;
+	int   len, got_it;
 	epicsTimeStamp now;
 
 	pscan= pmsg->pscan;
@@ -3139,9 +3234,20 @@ LOCAL void proc_scan_rxnv(SCAN_INDEX_MSG* pmsg)
 		pscan->crxeu[i]= NULL;
 	}
 
+	/*
+	 * Note this is different from, say, proc_scan_pxnv, because we permit the
+	 * pseudo PV names "time" and "TIME".  These aren't valid in a "val==XXNV_OK"
+	 * sense, because they are not the names of actual PV's, so we don't try to
+	 * get a description, etc.
+	 */
+
 	/* Get the readback pvname                                            */
-	ca_array_get(DBR_STRING, 1, pscan->crxpv[i], pscan->rxpv[i]);
-	if (ca_pend_io(0.5)!=ECA_NORMAL) {
+	got_it = 0;
+	if (pscan->crxpv[i]) {
+		ca_array_get(DBR_STRING, 1, pscan->crxpv[i], pscan->rxpv[i]);
+		if (ca_pend_io(0.5)==ECA_NORMAL) got_it = 1;
+	}
+	if (!got_it) {
 		Debug2(2, "Unable to get %s.%s\n", pscan->name, rxpv[i]);
 		strcpy(pscan->rxpv[i], "ERROR");
 	} else {
@@ -3158,9 +3264,8 @@ LOCAL void proc_scan_rxnv(SCAN_INDEX_MSG* pmsg)
 				ca_clear_channel(pscan->crxds[i]);
 				pscan->crxds[i]=NULL;
 			} else {
-				ca_add_array_event(DBR_STRING, 1, pscan->crxds[i], 
-					descMonitor, pscan->rxds[i],
-					(float)0,(float)0,(float)0, NULL);
+				ca_add_array_event(DBR_STRING, 1, pscan->crxds[i],  descMonitor,
+					pscan->rxds[i], (float)0,(float)0,(float)0, NULL);
 			}
 			/* Try to connect the readback */
 			ca_search(pscan->rxpv[i], &pscan->crxeu[i]);
@@ -3196,7 +3301,7 @@ LOCAL void proc_scan_dxnv(SCAN_INDEX_MSG* pmsg)
 	int   i;
 	short val;
 	char  buff[PVNAME_STRINGSZ];
-	int   len;
+	int   len, got_it;
 	char  msg[200];
 	epicsTimeStamp now;
 
@@ -3230,8 +3335,12 @@ LOCAL void proc_scan_dxnv(SCAN_INDEX_MSG* pmsg)
 			sendUserMessage(msg);
 		}
 #endif
-		ca_array_get(DBR_STRING, 1, pscan->cdxpv[i], pscan->dxpv[i]);
-		if (ca_pend_io(1.0)!=ECA_NORMAL) {
+		got_it = 0;
+		if (pscan->cdxpv[i]) {
+			ca_array_get(DBR_STRING, 1, pscan->cdxpv[i], pscan->dxpv[i]);
+			if (ca_pend_io(1.0)==ECA_NORMAL) got_it = 1;
+		}
+		if (!got_it) {
 			Debug2(2, "Unable to get %s.%s\n", pscan->name, dxpv[i]);
 			strcpy(pscan->dxpv[i], "ERROR");
 		} else {
@@ -3246,9 +3355,8 @@ LOCAL void proc_scan_dxnv(SCAN_INDEX_MSG* pmsg)
 				ca_clear_channel(pscan->cdxds[i]);
 				pscan->cdxds[i]=NULL;
 			} else {
-				ca_add_array_event(DBR_STRING, 1, pscan->cdxds[i], 
-					descMonitor, pscan->dxds[i],
-					(float)0,(float)0,(float)0, NULL);
+				ca_add_array_event(DBR_STRING, 1, pscan->cdxds[i], descMonitor,
+					pscan->dxds[i], (float)0,(float)0,(float)0, NULL);
 			}
 			/* Try to connect the detector */
 			ca_search(pscan->dxpv[i], &pscan->cdxeu[i]);
@@ -3273,7 +3381,7 @@ LOCAL void proc_scan_txnv(SCAN_INDEX_MSG* pmsg)
 	SCAN* pscan;
 	int   i;
 	short val;
-	int   len;
+	int   len, got_it;
 	epicsTimeStamp now;
 
 	pscan= pmsg->pscan;
@@ -3286,8 +3394,12 @@ LOCAL void proc_scan_txnv(SCAN_INDEX_MSG* pmsg)
 	pscan->txpvRec[i][0]= '\0';
 
 	if (val==XXNV_OK) {
-		ca_array_get(DBR_STRING, 1, pscan->ctxpv[i], pscan->txpv[i]);
-		if (ca_pend_io(2.0)!=ECA_NORMAL) {
+		got_it = 0;
+		if (pscan->ctxpv[i]) {
+			ca_array_get(DBR_STRING, 1, pscan->ctxpv[i], pscan->txpv[i]);
+			if (ca_pend_io(2.0)==ECA_NORMAL) got_it = 1;
+		}
+		if (!got_it) {
 			Debug2(2, "Unable to get %s.%s\n", pscan->name, txpv[i]);
 			pscan->txpv[i][0]='\0';
 			pscan->txpvRec[i][0]='\0';
@@ -3376,7 +3488,7 @@ LOCAL void remount_file_system(char* filesystem)
 	/* reset subdirectory to "" */
 	if (*local_subdir!='\0') {
 		*local_subdir='\0';
-		ca_array_put(DBR_STRING, 1, file_subdir_chid, local_subdir);
+		if (file_subdir_chid) ca_array_put(DBR_STRING, 1, file_subdir_chid, local_subdir);
 	}
 	server_pathname[0]='\0';
 	server_subdir= server_pathname;
@@ -3443,11 +3555,12 @@ LOCAL void proc_file_subdir(STRING_MSG* pmsg)
 
 	if (file_system_state==FS_MOUNTED) {
 
-		save_status= STATUS_ACTIVE_FS_ERROR;
 		cin= pmsg->string;
 
 		/* the new directory should be different from the previous one */
 		if (strcmp(cin, local_subdir)==0) return;
+		/* assume failure until we prove that we can create a file. */
+		save_status= STATUS_ACTIVE_FS_ERROR;
 
 		server= server_subdir;
 		local= local_subdir;
@@ -3499,7 +3612,7 @@ LOCAL void proc_file_subdir(STRING_MSG* pmsg)
 				full_pathname_chid, server_pathname);
 		}
 		sendUserMessage(msg);
-		ca_array_put(DBR_SHORT, 1, save_status_chid, &save_status);
+		if (save_status_chid) ca_array_put(DBR_SHORT, 1, save_status_chid, &save_status);
 	}
 	epicsTimeGetCurrent(&now);
 	DebugMsg2(2, "MSG_FILE_SUBDIR(%s)= %f\n", pmsg->string, 
