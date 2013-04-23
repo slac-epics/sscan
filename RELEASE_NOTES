@@ -23,6 +23,10 @@
 #
 #==============================================================
 #
+sscan-R2-8-1_1-0:    Initial New release sscan-28-1 brought in from APS
+                     Read Release Notes from APS:
+                     http://www.aps.anl.gov/bcda/synApps/sscan/sscanReleaseNotes.html 
+
 sscan-R2-7-lcls1:    Initial New release brought in from APS
                      Read Release Notes from APS:
                      http://www.aps.anl.gov/bcda/synApps/sscan/sscanReleaseNotes.html 
