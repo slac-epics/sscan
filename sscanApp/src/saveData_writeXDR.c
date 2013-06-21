@@ -152,32 +152,42 @@
 
  */
 
-#define FILE_FORMAT_VERSION (float)1.3
-#define SAVE_DATA_VERSION   "1.32.0"
+#define FILE_FORMAT_VERSION (float)1.4
+#define SAVE_DATA_VERSION   "1.32.1"
 
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdarg.h>
-/* #include <osiUnistd.h> 3.14.11 */
-#include <unistd.h>
 
-#ifdef vxWorks
-#include <usrLib.h>
-#include <ioLib.h>
-
-/* nfsDrv.h was renamed nfsDriver.h in Tornado 2.2.2 */
-/* #include	<nfsDrv.h> */
-extern STATUS nfsMount(char *host, char *fileSystem, char *localName);
-extern STATUS nfsUnmount(char *localName);
-
-#else
-#include <sys/stat.h>
-#include <fcntl.h>
-#define OK 0
-#define ERROR -1
+#ifdef linux
+	#include <unistd.h>
 #endif
 
+/* definition of u_int, etc. */
 #include <sys/types.h>
+
+#ifdef _WIN32
+	#include <direct.h>
+	#include <io.h>
+	typedef unsigned int    u_int;
+#endif
+
+#ifdef vxWorks
+	#include <usrLib.h>
+	#include <ioLib.h>
+
+	/* nfsDrv.h was renamed nfsDriver.h in Tornado 2.2.2 */
+	/* #include	<nfsDrv.h> */
+	extern STATUS nfsMount(char *host, char *fileSystem, char *localName);
+	extern STATUS nfsUnmount(char *localName);
+
+#else
+	#include <sys/stat.h>
+	#include <fcntl.h>
+	#define OK 0
+	#define ERROR -1
+#endif
+
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
@@ -200,10 +210,7 @@ extern STATUS nfsUnmount(char *localName);
 #define BASENAME_SIZE 20
 
 #include "req_file.h"
-#include "xdr_lib.h"
-#ifdef vxWorks
-#include "xdr_stdio.h"
-#endif
+#include "writeXDR.h"
 
 /************************************************************************/
 /*                           MACROS                                     */
@@ -1656,7 +1663,7 @@ LOCAL int connectCounter(char* name)
 
 	ca_search(name, &counter_chid);
 	if (ca_pend_io(0.5)!=ECA_NORMAL) {
-		printf("Can't connect scan-number PV %s\n", name);
+		printf("Can't connect counter %s\n", name);
 		return -1;
 	}
 	return 0;
@@ -1825,19 +1832,19 @@ LOCAL void extraValCallback(struct event_handler_args eha)
 		/* logMsg("extraValCallback: count=%d, strlen=%d\n", count, size); */
 		break;
 	case DBR_CTRL_CHAR:
-		size= dbr_size_n(DBR_CTRL_CHAR, count);
+		size = dbr_size_n(DBR_CTRL_CHAR, count);
 		break;
 	case DBR_CTRL_SHORT:
-		size= dbr_size_n(DBR_CTRL_SHORT, count);
+		size = dbr_size_n(DBR_CTRL_SHORT, count);
 		break;
 	case DBR_CTRL_LONG:
-		size= dbr_size_n(DBR_CTRL_LONG, count);
+		size = dbr_size_n(DBR_CTRL_LONG, count);
 		break;
 	case DBR_CTRL_FLOAT:
-		size= dbr_size_n(DBR_CTRL_FLOAT, count);
+		size = dbr_size_n(DBR_CTRL_FLOAT, count);
 		break;
 	case DBR_CTRL_DOUBLE:
-		size= dbr_size_n(DBR_CTRL_DOUBLE, count);
+		size = dbr_size_n(DBR_CTRL_DOUBLE, count);
 		break;
 	default:
 		printf("saveDta: unsupported dbr_type %d\n", (int)type);
@@ -1915,11 +1922,11 @@ LOCAL int connectPV(char* pv, char* desc)
 		break;
 	case DBR_CHAR:
 		pnode->dbr_type= DBR_CTRL_CHAR;
-		size= dbr_size_n(DBR_CTRL_CHAR, count);
+		size = dbr_size_n(DBR_CTRL_CHAR, count);
 		break;
 	case DBR_SHORT:
 		pnode->dbr_type= DBR_CTRL_SHORT;
-		size= dbr_size_n(DBR_CTRL_SHORT, count);
+		size = dbr_size_n(DBR_CTRL_SHORT, count);
 		break;
 	case DBR_ENUM:
 		pnode->dbr_type= DBR_STRING;
@@ -1928,15 +1935,15 @@ LOCAL int connectPV(char* pv, char* desc)
 		break;
 	case DBR_LONG:
 		pnode->dbr_type= DBR_CTRL_LONG;
-		size= dbr_size_n(DBR_CTRL_LONG, count);
+		size = dbr_size_n(DBR_CTRL_LONG, count);
 		break;
 	case DBR_FLOAT:
 		pnode->dbr_type= DBR_CTRL_FLOAT;
-		size= dbr_size_n(DBR_CTRL_FLOAT, count);
+		size = dbr_size_n(DBR_CTRL_FLOAT, count);
 		break;
 	case DBR_DOUBLE:
 		pnode->dbr_type= DBR_CTRL_DOUBLE;
-		size= dbr_size_n(DBR_CTRL_DOUBLE, count);
+		size = dbr_size_n(DBR_CTRL_DOUBLE, count);
 		break;
 	default:
 		printf("saveData: %s has an unsupported type\n", pv);
@@ -2211,7 +2218,7 @@ LOCAL void getExtraPV()
  * Write extra (also called "environment") PV's.
  * return: 0 if successful, else nonzero
  */
-LOCAL int saveExtraPV(XDR* pxdrs)
+LOCAL int saveExtraPV(FILE *fd)
 {
 	PV_NODE* pcur;
 	chid     channel;
@@ -2219,10 +2226,10 @@ LOCAL int saveExtraPV(XDR* pxdrs)
 	DBR_VAL* pval;
 	long     count;
 	char*    cptr;
-	bool_t writeFailed = FALSE;
+	int writeFailed = FALSE;
 
 	/* number of pv saved */
-	writeFailed |= !xdr_int(pxdrs, &nb_extraPV);
+	writeFailed |= !writeXDR_int(fd, &nb_extraPV);
 
 	if (nb_extraPV>0) {
 
@@ -2234,48 +2241,47 @@ LOCAL int saveExtraPV(XDR* pxdrs)
 			pval= pcur->pval;
 			
 			cptr= pcur->name;
-			writeFailed |= !xdr_counted_string(pxdrs, &cptr);
+			writeFailed |= !writeXDR_counted_string(fd, &cptr);
 
 			cptr= pcur->desc;
-			writeFailed |= !xdr_counted_string(pxdrs, &cptr);
+			writeFailed |= !writeXDR_counted_string(fd, &cptr);
 			
 			type= pcur->dbr_type;
-			writeFailed |= !xdr_int(pxdrs, &type);
+			writeFailed |= !writeXDR_int(fd, &type);
 
 			if (type!=DBR_STRING) {
 				count= pcur->count;
-				writeFailed |= !xdr_long(pxdrs, &count);
+				writeFailed |= !writeXDR_long(fd, &count);
 			}
 
 			switch (type) {
 			case DBR_STRING:
-				writeFailed |= !xdr_counted_string(pxdrs, (char**)&pval);
+				writeFailed |= !writeXDR_counted_string(fd, (char**)&pval);
 				break;
 			case DBR_CTRL_CHAR:
 				cptr= pval->cchrval.units;
-				writeFailed |= !xdr_counted_string(pxdrs, &cptr);
-				/* xdr_bytes(pxdrs,(char**)&pval->cchrval.value,&count, count); */
-				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->cchrval.value,count,sizeof(char),(xdrproc_t)xdr_char);
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);
+				writeFailed |= !writeXDR_vector(fd,(char*)&pval->cchrval.value,count,sizeof(char),(xdrproc_t)writeXDR_char);
 				break;
 			case DBR_CTRL_SHORT:
 				cptr= pval->cshrtval.units;
-				writeFailed |= !xdr_counted_string(pxdrs, &cptr);
-				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->cshrtval.value,count,sizeof(short),(xdrproc_t)xdr_short);
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);
+				writeFailed |= !writeXDR_vector(fd,(char*)&pval->cshrtval.value,count,sizeof(short),(xdrproc_t)writeXDR_short);
 				break;
 			case DBR_CTRL_LONG:
 				cptr= pval->clngval.units;
-				writeFailed |= !xdr_counted_string(pxdrs, &cptr);
-				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->clngval.value,count, sizeof(epicsInt32),(xdrproc_t)xdr_int);
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);
+				writeFailed |= !writeXDR_vector(fd,(char*)&pval->clngval.value,count, sizeof(epicsInt32),(xdrproc_t)writeXDR_int);
 				break;
 			case DBR_CTRL_FLOAT:
 				cptr= pval->cfltval.units;
-				writeFailed |= !xdr_counted_string(pxdrs, &cptr);
-				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->cfltval.value,count, sizeof(float),(xdrproc_t)xdr_float);
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);
+				writeFailed |= !writeXDR_vector(fd,(char*)&pval->cfltval.value,count, sizeof(float),(xdrproc_t)writeXDR_float);
 				break;
 			case DBR_CTRL_DOUBLE:
 				cptr= pval->cdblval.units;
-				writeFailed |= !xdr_counted_string(pxdrs, &cptr);
-				writeFailed |= !xdr_vector(pxdrs,(char*)&pval->cdblval.value,count, sizeof(double),(xdrproc_t)xdr_double);
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);
+				writeFailed |= !writeXDR_vector(fd,(char*)&pval->cdblval.value,count, sizeof(double),(xdrproc_t)writeXDR_double);
 				break;
 			}
 
@@ -2296,14 +2302,13 @@ LOCAL void reset_old_npts(SCAN *pscan) {
 LOCAL int writeScanRecInProgress(SCAN *pscan, epicsTimeStamp stamp, int isRetry)
 {
 	FILE *fd = NULL;
-	XDR   xdrs;
 	char  msg[200], timeStr[MAX_STRING_SIZE];
 	char  *cptr, cval;
 	epicsTimeStamp  openTime;
 	int i, ival;
 	long lval, scan_offset, data_size;
 	static float fileFormatVersion = FILE_FORMAT_VERSION;
-	bool_t writeFailed = FALSE;
+	int writeFailed = FALSE;
 
 	/* Attempt to open data file */
 	Debug1(3, "saveData:writeScanRecInProgress: Opening file '%s'\n", pscan->ffname);
@@ -2340,32 +2345,32 @@ LOCAL int writeScanRecInProgress(SCAN *pscan, epicsTimeStamp stamp, int isRetry)
 			if (pscan->savedSeekPos == EOF) {pscan->savedSeekPos = 0; fclose(fd); return(-1);}
 		}
 	}
-	xdrstdio_create(&xdrs, fd, XDR_ENCODE);
+	write_XDR_Init();
 
 	if (pscan->first_scan) {
 		/*----------------------------------------------------------------*/
 		/* Write the file header */
 		Debug0(3, "saveData:writeScanRecInProgress: Writing file header\n");
-		writeFailed |= !xdr_float(&xdrs, &fileFormatVersion); /* file format version      */
-		writeFailed |= !xdr_long(&xdrs, &pscan->counter);     /* scan number              */
+		writeFailed |= !writeXDR_float(fd, &fileFormatVersion); /* file format version      */
+		writeFailed |= !writeXDR_long(fd, &pscan->counter);     /* scan number              */
 		Debug1(2, "saveData:writeScanRecInProgress: scan_dim=%d\n", pscan->scan_dim);
-		writeFailed |= !xdr_short(&xdrs, &pscan->scan_dim);   /* rank of the data         */
-		pscan->dims_offset = xdr_getpos(&xdrs);
+		writeFailed |= !writeXDR_short(fd, &pscan->scan_dim);   /* rank of the data         */
+		pscan->dims_offset = writeXDR_getpos(fd);
 		Debug3(2, "saveData:writeScanRecInProgress:(%s) scan_dim=%d, dims_offset=%ld\n",
 			pscan->name, pscan->scan_dim, pscan->dims_offset);
 		if (pscan->dims_offset == (u_int)(-1)) {writeFailed = TRUE; goto cleanup;}
 		ival = -1;
-		for (i=0; i<pscan->scan_dim; i++) writeFailed |= !xdr_int(&xdrs, &ival);
-		pscan->regular_offset = xdr_getpos(&xdrs);
+		for (i=0; i<pscan->scan_dim; i++) writeFailed |= !writeXDR_int(fd, &ival);
+		pscan->regular_offset = writeXDR_getpos(fd);
 		if (pscan->regular_offset == (u_int)(-1)) {writeFailed = TRUE; goto cleanup;}
 		ival = 1;                     /* regular (rectangular array) = true */
-		writeFailed |= !xdr_int(&xdrs, &ival);
+		writeFailed |= !writeXDR_int(fd, &ival);
 			
 		/* offset to the extraPVs */
-		pscan->offset_extraPV = xdr_getpos(&xdrs);
+		pscan->offset_extraPV = writeXDR_getpos(fd);
 		if (pscan->offset_extraPV == (u_int)(-1)) {writeFailed = TRUE; goto cleanup;}
 		lval = 0;
-		writeFailed |= !xdr_long(&xdrs, &lval);
+		writeFailed |= !writeXDR_long(fd, &lval);
 		if (writeFailed) goto cleanup;
 		Debug0(3, "saveData:writeScanRecInProgress: File Header written\n");
 	}
@@ -2382,7 +2387,7 @@ LOCAL int writeScanRecInProgress(SCAN *pscan, epicsTimeStamp stamp, int isRetry)
 	}
 
 	/* the offset of this scan                                          */
-	scan_offset = xdr_getpos(&xdrs);
+	scan_offset = writeXDR_getpos(fd);
 	Debug2(2, "saveData:writeScanRecInProgress:(%s) scan_offset=%ld\n",
 			pscan->name, scan_offset);
 	if (scan_offset == (u_int)(-1)) {writeFailed = TRUE; goto cleanup;}
@@ -2390,21 +2395,21 @@ LOCAL int writeScanRecInProgress(SCAN *pscan, epicsTimeStamp stamp, int isRetry)
 	/*------------------------------------------------------------------*/
 	/* Scan header                                                      */
 	Debug0(3, "saveData:writeScanRecInProgress: Writing per-scan header\n");
-	writeFailed |= !xdr_short(&xdrs, &pscan->scan_dim); /* scan dimension               */
+	writeFailed |= !writeXDR_short(fd, &pscan->scan_dim); /* scan dimension               */
 	lval = pscan->npts;
-	writeFailed |= !xdr_long(&xdrs, &lval);             /* # of pts                     */
-	pscan->cpt_fpos = xdr_getpos(&xdrs);
+	writeFailed |= !writeXDR_long(fd, &lval);             /* # of pts                     */
+	pscan->cpt_fpos = writeXDR_getpos(fd);
 	if (pscan->cpt_fpos == (u_int)(-1)) {writeFailed = TRUE; goto cleanup;}
 	lval = pscan->cpt;                   /* last valid point             */
-	writeFailed |= !xdr_long(&xdrs, &lval);    
+	writeFailed |= !writeXDR_long(fd, &lval);    
 
 	if (pscan->scan_dim>1) {             /* index of lower scans         */
-		lval = xdr_getpos(&xdrs);
+		lval = writeXDR_getpos(fd);
 		if (lval == (u_int)(-1)) {writeFailed = TRUE; goto cleanup;}
 		pscan->nxt->offset = lval; /* tell inner scan where to write its offset */
 		Debug3(15, "saveData:writeScanRecInProgress(%s) telling %s to write its next offset at loc %ld\n",
 			pscan->name, pscan->nxt->name, lval);
-		writeFailed |= !xdr_setpos(&xdrs, lval+pscan->npts*sizeof(epicsInt32));
+		writeFailed |= !writeXDR_setpos(fd, lval+pscan->npts*sizeof(epicsInt32));
 	}
 	if (writeFailed) goto cleanup;
 
@@ -2412,38 +2417,38 @@ LOCAL int writeScanRecInProgress(SCAN *pscan, epicsTimeStamp stamp, int isRetry)
 	/* Scan info                                                        */
 	Debug0(3, "saveData:writeScanRecInProgress: Save scan info\n");
 	cptr = pscan->name;
-	writeFailed |= !xdr_counted_string(&xdrs, &cptr);   /* scan name                    */
+	writeFailed |= !writeXDR_counted_string(fd, &cptr);   /* scan name                    */
 
 	epicsTimeToStrftime(timeStr, MAX_STRING_SIZE, "%b %d, %Y %H:%M:%S.%06f", &stamp);
 	cptr = timeStr;
-	pscan->time_fpos = xdr_getpos(&xdrs);
+	pscan->time_fpos = writeXDR_getpos(fd);
 	if (pscan->time_fpos == (u_int)(-1)) {writeFailed = TRUE; goto cleanup;}
-	writeFailed |= !xdr_counted_string(&xdrs, &cptr);   /* time stamp                   */
+	writeFailed |= !writeXDR_counted_string(fd, &cptr);   /* time stamp                   */
 
-	writeFailed |= !xdr_int(&xdrs, &pscan->nb_pos);     /* # of positioners             */
-	writeFailed |= !xdr_int(&xdrs, &pscan->nb_det);     /* # of detectors               */
-	writeFailed |= !xdr_int(&xdrs, &pscan->nb_trg);     /* # of triggers                */
+	writeFailed |= !writeXDR_int(fd, &pscan->nb_pos);     /* # of positioners             */
+	writeFailed |= !writeXDR_int(fd, &pscan->nb_det);     /* # of detectors               */
+	writeFailed |= !writeXDR_int(fd, &pscan->nb_trg);     /* # of triggers                */
 	if (writeFailed) goto cleanup;
 
 	if (pscan->nb_pos) {
 		for (i=0; i<SCAN_NBP; i++) {
 			if ((pscan->rxnv[i]==XXNV_OK) || (pscan->pxnv[i]==XXNV_OK)) {
 				Debug1(3, "saveData:writeScanRecInProgress: Pos[%d] info\n", i);
-				writeFailed |= !xdr_int(&xdrs, &i);           /* positioner number            */
+				writeFailed |= !writeXDR_int(fd, &i);           /* positioner number            */
 				cptr = pscan->pxpv[i];
-				writeFailed |= !xdr_counted_string(&xdrs, &cptr);/* positioner name           */
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);/* positioner name           */
 				cptr = pscan->pxds[i];
-				writeFailed |= !xdr_counted_string(&xdrs, &cptr);/* positioner desc           */
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);/* positioner desc           */
 				cptr = pscan->pxsm[i];
-				writeFailed |= !xdr_counted_string(&xdrs, &cptr);/* positioner step mode      */
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);/* positioner step mode      */
 				cptr = pscan->pxeu[i].units;
-				writeFailed |= !xdr_counted_string(&xdrs, &cptr);/* positioner unit           */
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);/* positioner unit           */
 				cptr = pscan->rxpv[i];
-				writeFailed |= !xdr_counted_string(&xdrs, &cptr);/* readback name             */
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);/* readback name             */
 				cptr = pscan->rxds[i];
-				writeFailed |= !xdr_counted_string(&xdrs, &cptr);/* readback description      */
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);/* readback description      */
 				cptr = pscan->rxeu[i].units;
-				writeFailed |= !xdr_counted_string(&xdrs, &cptr);/* readback unit             */
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);/* readback unit             */
 			}
 		}
 	}
@@ -2453,13 +2458,13 @@ LOCAL int writeScanRecInProgress(SCAN *pscan, epicsTimeStamp stamp, int isRetry)
 		for (i=0; i<SCAN_NBD; i++) {
 			if (pscan->dxnv[i]==XXNV_OK) {
 				Debug1(3, "saveData:writeScanRecInProgress: Det[%d] info\n", i);
-				writeFailed |= !xdr_int(&xdrs, &i);              /* detector number           */
+				writeFailed |= !writeXDR_int(fd, &i);              /* detector number           */
 				cptr = pscan->dxpv[i];
-				writeFailed |= !xdr_counted_string(&xdrs, &cptr);/* detector name             */
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);/* detector name             */
 				cptr = pscan->dxds[i];
-				writeFailed |= !xdr_counted_string(&xdrs, &cptr);/* detector description      */
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);/* detector description      */
 				cptr = pscan->dxeu[i].units;
-				writeFailed |= !xdr_counted_string(&xdrs, &cptr);/* detector unit             */
+				writeFailed |= !writeXDR_counted_string(fd, &cptr);/* detector unit             */
 			}
 		}
 	}
@@ -2469,17 +2474,17 @@ LOCAL int writeScanRecInProgress(SCAN *pscan, epicsTimeStamp stamp, int isRetry)
 		for (i=0; i<SCAN_NBT; i++) {
 			if (pscan->txnv[i]==XXNV_OK) {
 				Debug1(3, "saveData:writeScanRecInProgress: Trg[%d] info\n", i);
-				writeFailed |= !xdr_int(&xdrs, &i);               /* trigger number           */
+				writeFailed |= !writeXDR_int(fd, &i);               /* trigger number           */
 				cptr = pscan->txpv[i];
-				writeFailed |= !xdr_counted_string(&xdrs, &cptr); /* trigger name             */
-				writeFailed |= !xdr_float(&xdrs, &pscan->txcd[i]);/* trigger command          */
+				writeFailed |= !writeXDR_counted_string(fd, &cptr); /* trigger name             */
+				writeFailed |= !writeXDR_float(fd, &pscan->txcd[i]);/* trigger command          */
 			}
 		}
 	}
 	if (writeFailed) goto cleanup;
 
 	data_size = 0;
-	lval = xdr_getpos(&xdrs);
+	lval = writeXDR_getpos(fd);
 	if (lval == (u_int)(-1)) {writeFailed = TRUE; goto cleanup;}
 	if (pscan->nb_pos) {
 		/* calculate file space required for nb_pos positioners                          */
@@ -2510,20 +2515,20 @@ LOCAL int writeScanRecInProgress(SCAN *pscan, epicsTimeStamp stamp, int isRetry)
 	}
 		
 	if (pscan->old_npts < pscan->npts) {
-		writeFailed |= !xdr_setpos(&xdrs, pscan->dims_offset);
+		writeFailed |= !writeXDR_setpos(fd, pscan->dims_offset);
 		Debug3(2, "saveData:writeScanRecInProgress:(%s) scan_dim=%d, dims_offset=%ld\n",
 			pscan->name, pscan->scan_dim, pscan->dims_offset);
 		if (writeFailed) goto cleanup;
 		lval = pscan->npts;
-		writeFailed |= !xdr_long(&xdrs, &lval);
+		writeFailed |= !writeXDR_long(fd, &lval);
 	}
 
 	if (pscan->old_npts!=-1 && pscan->old_npts!=pscan->npts) {
 		/* npts changed during scan (possible only for a multidimensional scan) */
 		ival = 0;  /*regular= FALSE */
-		writeFailed |= !xdr_setpos(&xdrs, pscan->regular_offset);
+		writeFailed |= !writeXDR_setpos(fd, pscan->regular_offset);
 		if (writeFailed) goto cleanup;
-		writeFailed |= !xdr_int(&xdrs, &ival);
+		writeFailed |= !writeXDR_int(fd, &ival);
 	}
 	pscan->old_npts = pscan->npts;
 
@@ -2531,10 +2536,10 @@ LOCAL int writeScanRecInProgress(SCAN *pscan, epicsTimeStamp stamp, int isRetry)
 	if (pscan->first_scan==FALSE) {
 		Debug3(15, "saveData:writeScanRecInProgress(%s): writing offset %ld at loc %ld\n",
 			pscan->name, scan_offset, pscan->offset);
-		writeFailed |= !xdr_setpos(&xdrs, pscan->offset);
+		writeFailed |= !writeXDR_setpos(fd, pscan->offset);
 		if (writeFailed) goto cleanup;
-		writeFailed |= !xdr_long(&xdrs, &scan_offset);
-		lval = xdr_getpos(&xdrs);
+		writeFailed |= !writeXDR_long(fd, &scan_offset);
+		lval = writeXDR_getpos(fd);
 		if (lval == (u_int)(-1)) {writeFailed = TRUE; goto cleanup;}
 		pscan->offset = lval;
 	}
@@ -2554,7 +2559,6 @@ LOCAL int writeScanRecInProgress(SCAN *pscan, epicsTimeStamp stamp, int isRetry)
 	}
 
 cleanup:
-	xdr_destroy(&xdrs);
 	fclose(fd);
 	return(writeFailed ? -1 : 0);
 }
@@ -2563,11 +2567,10 @@ cleanup:
 LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 {
 	FILE *fd = NULL;
-	XDR   xdrs;
 	char  msg[200];
 	int i, status;
 	long j, lval;
-	bool_t writeFailed = FALSE;
+	int writeFailed = FALSE;
 
 	fd = fopen(pscan->ffname, "rb+");
 	if ((fd == NULL) || (fileStatus(pscan->ffname) == ERROR)) {
@@ -2581,7 +2584,7 @@ LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 		return(-1);
 	}
 
-	xdrstdio_create(&xdrs, fd, XDR_ENCODE);
+	write_XDR_Init();
 
 	/* The scan just finished. update buffers and save scan */
 	Debug2(3, "saveData:writeScanRecCompleted: writing %s to %s\n", pscan->name, pscan->fname);
@@ -2664,10 +2667,10 @@ LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 	if (pscan->nb_pos) {
 		for (i=0; i<SCAN_NBP; i++) {
 			if ((pscan->rxnv[i]==XXNV_OK) || (pscan->pxnv[i]==XXNV_OK)) {
-				writeFailed |= !xdr_setpos(&xdrs, pscan->pxra_fpos[i]);
+				writeFailed |= !writeXDR_setpos(fd, pscan->pxra_fpos[i]);
 				if (writeFailed) goto cleanup;
-				writeFailed |= !xdr_vector(&xdrs, (char*)pscan->pxra[i], pscan->npts, 
-					sizeof(double), (xdrproc_t)xdr_double);
+				writeFailed |= !writeXDR_vector(fd, (char*)pscan->pxra[i], pscan->npts, 
+					sizeof(double), (xdrproc_t)writeXDR_double);
 			}
 		}
 	}
@@ -2675,18 +2678,18 @@ LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 	if (pscan->nb_det) {
 		for (i=0; i<SCAN_NBD; i++) {
 			if ((pscan->dxnv[i]==XXNV_OK) && pscan->dxda[i]) {
-				writeFailed |= !xdr_setpos(&xdrs, pscan->dxda_fpos[i]);
+				writeFailed |= !writeXDR_setpos(fd, pscan->dxda_fpos[i]);
 				if (writeFailed) goto cleanup;
-				writeFailed |= !xdr_vector(&xdrs, (char*)pscan->dxda[i], pscan->npts,
-					sizeof(float), (xdrproc_t)xdr_float);
+				writeFailed |= !writeXDR_vector(fd, (char*)pscan->dxda[i], pscan->npts,
+					sizeof(float), (xdrproc_t)writeXDR_float);
 			}
 		}
 	}
 
-	writeFailed |= !xdr_setpos(&xdrs, pscan->cpt_fpos);
+	writeFailed |= !writeXDR_setpos(fd, pscan->cpt_fpos);
 	if (writeFailed) goto cleanup;
 	lval = pscan->bcpt;
-	writeFailed |= !xdr_long(&xdrs, &lval); 
+	writeFailed |= !writeXDR_long(fd, &lval); 
 
 
 	if (pscan->first_scan) {
@@ -2708,12 +2711,12 @@ LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 			if (pscan->savedSeekPos == EOF) {pscan->savedSeekPos = 0; fclose(fd); return(-1);}
 		}
 
-		lval = xdr_getpos(&xdrs);
+		lval = writeXDR_getpos(fd);
 		if (lval == (u_int)(-1)) {writeFailed = TRUE; goto cleanup;}
-		writeFailed |= saveExtraPV(&xdrs);
-		writeFailed |= !xdr_setpos(&xdrs, pscan->offset_extraPV);
+		writeFailed |= saveExtraPV(fd);
+		writeFailed |= !writeXDR_setpos(fd, pscan->offset_extraPV);
 		if (writeFailed) goto cleanup;
-		writeFailed |= !xdr_long(&xdrs, &lval);
+		writeFailed |= !writeXDR_long(fd, &lval);
 
 		sprintf(msg,"Done writing %s", pscan->fname);
 		sendUserMessage(msg);
@@ -2734,7 +2737,6 @@ LOCAL int writeScanRecCompleted(SCAN *pscan, int isRetry)
 	}
 
 cleanup:
-	xdr_destroy(&xdrs);
 	fclose(fd);
 	return(writeFailed?1:0);
 }
@@ -3025,9 +3027,8 @@ LOCAL void proc_scan_cpt(SCAN_LONG_MSG* pmsg)
 	long  lval;
 	SCAN* pscan;
 	FILE* fd;
-	XDR   xdrs;
 	epicsTimeStamp now, openTime;
-	bool_t writeFailed = FALSE;
+	int writeFailed = FALSE;
 	char  msg[200];
 
 	pscan = pmsg->pscan;
@@ -3072,22 +3073,22 @@ LOCAL void proc_scan_cpt(SCAN_LONG_MSG* pmsg)
 			return;
 	}
 
-	xdrstdio_create(&xdrs, fd, XDR_ENCODE);
+	write_XDR_Init();
 
 	/* point number  */
-	writeFailed |= !xdr_setpos(&xdrs, pscan->cpt_fpos);
+	writeFailed |= !writeXDR_setpos(fd, pscan->cpt_fpos);
 	if (writeFailed) goto cleanup;
 	lval = pscan->cpt;
-	writeFailed |= !xdr_long(&xdrs, &lval);
+	writeFailed |= !writeXDR_long(fd, &lval);
 	if (writeFailed) goto cleanup;
 
 	/* positioners and detectors values */
 	if (pscan->nb_pos) {
 		for (i=0; i<SCAN_NBP; i++) {
 			if ((pscan->rxnv[i]==XXNV_OK) || (pscan->pxnv[i]==XXNV_OK)) {
-				writeFailed |= !xdr_setpos(&xdrs, pscan->pxra_fpos[i]+(pscan->cpt-1)*sizeof(double));
+				writeFailed |= !writeXDR_setpos(fd, pscan->pxra_fpos[i]+(pscan->cpt-1)*sizeof(double));
 				if (writeFailed) goto cleanup;
-				writeFailed |= !xdr_double(&xdrs, &pscan->rxcv[i]);
+				writeFailed |= !writeXDR_double(fd, &pscan->rxcv[i]);
 			}
 		}
 	}
@@ -3095,9 +3096,9 @@ LOCAL void proc_scan_cpt(SCAN_LONG_MSG* pmsg)
 	if (pscan->nb_det) {
 		for (i=0; i<SCAN_NBD; i++) {
 			if (pscan->dxnv[i]==XXNV_OK) {
-				writeFailed |= !xdr_setpos(&xdrs, pscan->dxda_fpos[i]+(pscan->cpt-1)*sizeof(float));
+				writeFailed |= !writeXDR_setpos(fd, pscan->dxda_fpos[i]+(pscan->cpt-1)*sizeof(float));
 				if (writeFailed) goto cleanup;
-				writeFailed |= !xdr_float(&xdrs, &pscan->dxcv[i]);
+				writeFailed |= !writeXDR_float(fd, &pscan->dxcv[i]);
 			}
 			if (writeFailed) goto cleanup;
 		}
@@ -3112,7 +3113,6 @@ LOCAL void proc_scan_cpt(SCAN_LONG_MSG* pmsg)
 	}
 
 cleanup:
-	xdr_destroy(&xdrs);
 	fclose(fd);
 	epicsTimeGetCurrent(&now);
 	Debug2(1, "saveData:proc_scan_cpt:%s data point written (%.3fs)\n", pscan->name,
