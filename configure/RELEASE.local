@@ -1,0 +1,4 @@
+# RELEASE.local
+#
+# Fetch path relative EPICS_BASE and EPICS_MODULES
+-include $(TOP)/../../RELEASE.local
