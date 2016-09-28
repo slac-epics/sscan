@@ -1,0 +1,6 @@
+# RELEASE_NOTES
+#
+R2.9-0.2.0   Merged in pcds-trunk.  bhill (9/27/2016)
+    Allows defining EPICS_BASE in TOP/RELEASE.local or TOP/../../RELEASE.local
+	Releases should use TOP/../../RELEASE.local
+	TOP/RELEASE.local can be added temporarily for local development
