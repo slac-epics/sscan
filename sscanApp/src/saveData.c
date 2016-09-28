@@ -821,7 +821,7 @@ void saveData_Version()
 
 void saveData_CVS() 
 {
-	printf("saveData CVS: $Id: saveData.c,v 1.1.1.3 2013/04/23 23:08:52 ernesto Exp $\n");
+	printf("saveData CVS: $Id: saveData.c,v 1.46 2009-10-15 19:23:02 mooney Exp $\n");
 }
 
 void saveData_Info() {
