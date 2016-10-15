@@ -1,6 +1,60 @@
-# RELEASE_NOTES
+#==============================================================
 #
-R2.9-0.2.0   Merged in pcds-trunk.  bhill (9/27/2016)
-    Allows defining EPICS_BASE in TOP/RELEASE.local or TOP/../../RELEASE.local
-	Releases should use TOP/../../RELEASE.local
-	TOP/RELEASE.local can be added temporarily for local development
+#  Name: RELEASE_NOTES
+#
+#  Rem:  This file contains the release notes for sscan as
+#        pertains to the LCLS release format and procedures.
+#
+#        The initial version of this software written 
+#        by Tim Mooney at APS.
+#
+#  Auth: 17-Jul-2007, S. Schuh           (SCHUHS)
+#  Rev:  dd-mmm-yyyy, Reviewer's Name    (USERNAME)
+#--------------------------------------------------------------
+#  Mod:
+#        19-Mar-2010, S. Hoobler          (SONYA):
+#          add sscan-R2-6-3-lcls3
+#        29-Apr-2009, K. Luchini          (LUCHINI):
+#          add sscan-R2-6-3-lcls1
+#        21-Feb-2008, K. Luchini          (LUCHINI):
+#          add sscan-R2-5-2-lcls3
+#        04-Jan-2008, S. Schuh            (SCHUHS)
+#          add sscan-R2-5-2-lcls2
+#
+#==============================================================
+#
+R2.9-1.1.0:          Tweaked build to set EPICS_BASE last.
+
+R2.9-1.0.0:          Adds installation of edl files w/ merge from lcls-trunk.
+
+sscan-R2-8-1_1-0:    Initial New release sscan-28-1 brought in from APS
+                     Read Release Notes from APS:
+                     http://www.aps.anl.gov/bcda/synApps/sscan/sscanReleaseNotes.html 
+
+sscan-R2-7-lcls1:    Initial New release brought in from APS
+                     Read Release Notes from APS:
+                     http://www.aps.anl.gov/bcda/synApps/sscan/sscanReleaseNotes.html 
+
+sscan-R2-6-3-lcls3:  Built against rtems 4.9.4 and EPICS BASE:
+                     base-R3-14-8-2-lcls6
+
+sscan-R2-6-3-lcls2:  Built against rtems 4.9.3 and EPICS BASE:
+                     base-R3-14-8-2-lcls5
+
+sscan-R2-6-3-lcls1:
+                Build against base-R3-14-8-2 and RTEMS-4.9.1
+                Ernest READ the documentation directory
+                from the APS and updated files necessary to 
+                build with base-R3-14-10 for Arturo.
+
+sscan-R2-5-2-lcls3: Build against base-R3-14-9-lcls1
+                    Replace CONFIG_APP with CONFIG_SITE
+                    Add RELEASE_SITE                 
+
+sscan-R2-5-2-lcls2: Build against base-R3-14-8-2-lcls2
+
+sscan-R2-5-2-LCLS-1: Initial release used in LCLS Injector and BC1.  No 
+	code changes from modules/sscan/Devl version or former epics/site 
+	version.  Source is sscan APS tagged release R2-5-2.
+
+
