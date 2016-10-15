@@ -1,5 +1,7 @@
 # RELEASE_NOTES
 #
+R2.9-0.3.0   Tweaked build to set EPICS_BASE last.  bhill (10/15/2016)
+
 R2.9-0.2.0   Merged in pcds-trunk.  bhill (9/27/2016)
     Allows defining EPICS_BASE in TOP/RELEASE.local or TOP/../../RELEASE.local
 	Releases should use TOP/../../RELEASE.local
