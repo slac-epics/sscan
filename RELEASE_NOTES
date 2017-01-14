@@ -23,9 +23,14 @@
 #
 #==============================================================
 #
-R2.9-1.1.0:          Tweaked build to set EPICS_BASE last.
+R2.9-1.2.0:         Fixed DBD vs DBD_INSTALLS issue w/ R3.15 buld
+					bhill, 1/13/2017
 
-R2.9-1.0.0:          Adds installation of edl files w/ merge from lcls-trunk.
+R2.9-1.1.0:         Tweaked build to set EPICS_BASE last.
+					bhill, 10/15/2016
+
+R2.9-1.0.0:         Adds installation of edl files w/ merge from lcls-trunk.
+					bhill, 9/27/2016
 
 sscan-R2-8-1_1-0:    Initial New release sscan-28-1 brought in from APS
                      Read Release Notes from APS:
