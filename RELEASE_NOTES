@@ -1,7 +1,8 @@
 # RELEASE_NOTES
 #
-R2.10.2-0.1 Importing new version from collaboration. slepicka (02/03/2017)
+R2.10.2-0.1.0 Importing new version from collaboration. slepicka (02/03/2017)
             SNCSEQ dependency removed
+            Using x.y.z at SLAC internal version number.
             
 R2.9-0.4.0	Cherry-picked Mark River's fix, 70ef3c9
 			Changes DBD_INSTALLS to DBD for R3.15 compatibility
