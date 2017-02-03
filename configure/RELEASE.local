@@ -19,7 +19,7 @@
 # Don't set your version to anything such as "test" that
 # could match a directory name.
 # ==========================================================
-SEQ_MODULE_VERSION = R2.2.4-1.0
+#SNCSEQ_MODULE_VERSION = R2.2.4-1.0
 
 # ==========================================================
 # Define module paths using pattern
@@ -27,7 +27,7 @@ SEQ_MODULE_VERSION = R2.2.4-1.0
 #  or
 # FOO = /Full/Path/To/Development/Version 
 # ==========================================================
-SEQ = $(EPICS_MODULES)/seq/$(SEQ_MODULE_VERSION)
+#SNCSEQ = $(EPICS_MODULES)/seq/$(SEQ_MODULE_VERSION)
 
 # Set EPICS_BASE last so it appears last in the DB, DBD, INCLUDE, and LIB search paths
 EPICS_BASE              = $(EPICS_SITE_TOP)/base/$(BASE_MODULE_VERSION)
