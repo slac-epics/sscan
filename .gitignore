@@ -1,7 +1,9 @@
 *~
 O.*
+*.log
 *.swp
 *BAK.adl
+autosave/
 bin/
 db/
 dbd/
@@ -15,3 +17,5 @@ dllPath.bat
 auto_settings.sav*
 auto_positions.sav*
 
+RELEASE_SITE
+tags
