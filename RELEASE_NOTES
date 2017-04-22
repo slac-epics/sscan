@@ -23,6 +23,9 @@
 #
 #==============================================================
 #
+R2.9-1.2.1:         bhill, 4/22/2017
+					Fixed annoying "target ../../display given more than once" errors
+
 R2.9-1.2.0:         Fixed DBD vs DBD_INSTALLS issue w/ R3.15 buld
 					bhill, 1/13/2017
 
