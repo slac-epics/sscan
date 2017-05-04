@@ -1,5 +1,13 @@
 # RELEASE_NOTES
 #
+R2.10.2-1.0.0 Removing duplicated definitions of record. slepicka (05/04/2017)
+            sscanIncludes.dbd was including base.dbd and generating the following error:
+                dbdExpand.pl: Duplicate definition of record type ''
+                    Context: recordtype(calcout) in file '/reg/g/pcds/epics/R3.15.5-2.0/modules/sscan/R2.10.2-0.1.0/dbd/sscan.dbd'
+                while reading 'sscan.dbd' to create 'edt.dbd'
+                This problem and the fix to it is reported on the following Tech-Talk message:
+                    http://www.aps.anl.gov/epics/tech-talk/2014/msg01981.php
+
 R2.10.2-0.1.0 Importing new version from collaboration. slepicka (02/03/2017)
             SNCSEQ dependency removed
             Using x.y.z at SLAC internal version number.
