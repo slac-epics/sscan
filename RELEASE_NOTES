@@ -1,5 +1,8 @@
 # RELEASE_NOTES
 #
+R2.10.2-1.1.0 rocky9/rhel9 build support lorelli (08/26/2024)
+	Added TIRPC flag to CONFIG_SITE to link against libtirpc
+
 R2.10.2-1.0.0 Removing duplicated definitions of record. slepicka (05/04/2017)
             sscanIncludes.dbd was including base.dbd and generating the following error:
                 dbdExpand.pl: Duplicate definition of record type ''
