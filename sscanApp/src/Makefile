@@ -8,9 +8,12 @@ include $(TOP)/configure/CONFIG
 # Cygwin rpc is in tirpc
 USR_INCLUDES_cygwin32 += -I/usr/include/tirpc
 
+# Some linux systems moved RPC related symbols to libtirpc
+# Define TIRPC in configure/CONFIG_SITE in this case
 ifeq ($(TIRPC),YES)
-USR_INCLUDES_Linux += -I/usr/include/tirpc
-sscan_SYS_LIBS_Linux += tirpc
+  USR_INCLUDES_Linux += -I$(TIRPC_INCLUDE)
+  tirpc_DIR = $(TIRPC_LIB)
+  sscan_LIBS_Linux += tirpc
 endif
 
 #PROD_HOST += caExample
