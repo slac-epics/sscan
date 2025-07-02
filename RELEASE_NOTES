@@ -1,5 +1,9 @@
 # RELEASE_NOTES
 #
+pre-release: marcio (01/Jul/2025)
+             - Use tirpc from the package area, instead of the system installed
+               one. This is in preparation for Buildroot 2025.
+
 R2.10.2-1.1.0 rocky9/rhel9 build support lorelli (08/26/2024)
 	Added TIRPC flag to CONFIG_SITE to link against libtirpc
 
